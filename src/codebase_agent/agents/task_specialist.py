@@ -6,6 +6,8 @@ analysis completeness and providing abstract feedback to guide further analysis.
 """
 
 from typing import Dict, List, Optional, Tuple
+import json
+import re
 from autogen_agentchat.agents import AssistantAgent
 import logging
 
@@ -109,171 +111,131 @@ Your role is strategic oversight, not technical execution."""
         if self.review_count >= self.max_reviews:
             self.logger.info("Maximum reviews reached, force accepting analysis")
             return True, "Analysis accepted (maximum review limit reached)", 0.7
-        
-        # Perform completeness assessment
-        completeness_score, missing_areas = self._assess_completeness(analysis_report, task_description)
-        
-        # Determine if analysis is complete
-        is_complete = completeness_score >= 0.8
-        
-        if is_complete:
-            feedback = self._generate_acceptance_feedback(completeness_score)
-            self.logger.info(f"Analysis accepted with completeness score: {completeness_score:.2f}")
-        else:
-            feedback = self._generate_rejection_feedback(missing_areas, task_description)
-            self.logger.info(f"Analysis rejected, completeness score: {completeness_score:.2f}")
-        
-        return is_complete, feedback, completeness_score
-    
-    def _assess_completeness(self, analysis_report: str, task_description: str) -> Tuple[float, List[str]]:
+
+        # Primary path: Ask the LLM to perform the review with a structured prompt
+        try:
+            review_prompt = self._build_review_prompt(task_description, analysis_report, self.review_count)
+            llm_response = self.agent.on_messages([
+                {"role": "user", "content": review_prompt}
+            ])
+            is_complete, feedback, confidence = self._parse_llm_review_response(llm_response)
+
+            # If parsing succeeded, honor LLM decision
+            if feedback:
+                self.logger.info(
+                    f"LLM review completed. Decision: {'ACCEPT' if is_complete else 'REJECT'} "
+                    f"(confidence={confidence:.2f})"
+                )
+                return is_complete, feedback, confidence
+        except Exception as e:
+            # Fall back to heuristic assessment on any failure
+            self.logger.warning(f"LLM-driven review error: {e}")
+
+        # If we couldn't parse or call the LLM appropriately, return a neutral rejection
+        # without applying any hardcoded judgement logic.
+        return (
+            False,
+            "Analysis review could not be completed due to unparsable LLM response. Please retry the review step.",
+            0.0,
+        )
+
+    def _build_review_prompt(self, task_description: str, analysis_report: str, review_number: int) -> str:
+        """Build a structured prompt instructing the LLM to review and respond in JSON.
+
+        The LLM must decide completeness per the review criteria and return a JSON object:
+        {"is_complete": bool, "feedback": str, "confidence": float}
         """
-        Assess the completeness of the analysis report.
-        
-        Returns:
-            Tuple of (completeness_score, missing_areas)
+        criteria = (
+            "- Identification of existing related functionality\n"
+            "- Clear integration points and connection strategies\n"
+            "- Specific implementation steps and recommendations\n"
+            "- Potential conflicts or issues identification\n"
+            "- Concrete code examples or patterns from the codebase\n"
+            "- Understanding of project architecture and conventions\n"
+            "- Consideration of dependencies and compatibility"
+        )
+
+        guidance = (
+            "Provide abstract, high-level guidance. Focus on WHAT information is missing, "
+            "not HOW to find it. Be specific about missing areas without prescribing technical commands."
+        )
+
+        return (
+            f"""
+You are a Task Specialist, acting as a project manager responsible for reviewing analysis completeness and ensuring results meet user requirements.
+
+REVIEW CONTEXT:
+- Review number: {review_number}
+- Task description: {task_description}
+
+ANALYSIS REPORT:
+<<<ANALYSIS_REPORT_START>>>
+{analysis_report}
+<<<ANALYSIS_REPORT_END>>>
+
+REVIEW CRITERIA:
+{criteria}
+
+FEEDBACK GUIDELINES:
+- {guidance}
+- If critical information gaps exist, you must reject and list the most important missing areas (up to 5)
+- If the analysis is sufficient to proceed with implementation, you must accept
+
+OUTPUT FORMAT (MANDATORY):
+Return ONLY a minified JSON object on the first line with keys: is_complete (boolean), feedback (string), confidence (float in [0,1]).
+Examples:
+{{"is_complete": true, "feedback": "Analysis accepted - rationale...", "confidence": 0.86}}
+{{"is_complete": false, "feedback": "Analysis requires deeper coverage: - missing area 1 - missing area 2", "confidence": 0.55}}
+"""
+    )
+
+    def _parse_llm_review_response(self, raw_response: str) -> Tuple[bool, str, float]:
+        """Parse the LLM response and extract the JSON decision.
+
+        Supports plain JSON or fenced code blocks. Falls back to empty feedback on failure.
         """
-        missing_areas = []
-        criteria_met = 0
-        total_criteria = 7
-        
-        report_lower = analysis_report.lower()
-        task_lower = task_description.lower()
-        
-        # Check each completeness criterion
-        
-        # 1. Existing functionality identification
-        if any(keyword in report_lower for keyword in ['existing', 'current', 'found', 'identified']):
-            criteria_met += 1
-        else:
-            missing_areas.append("existing related functionality identification")
-        
-        # 2. Integration points
-        if any(keyword in report_lower for keyword in ['integration', 'connect', 'interface', 'endpoint']):
-            criteria_met += 1
-        else:
-            missing_areas.append("clear integration points and connection strategies")
-        
-        # 3. Implementation steps
-        if any(keyword in report_lower for keyword in ['recommend', 'implement', 'step', 'approach']):
-            criteria_met += 1
-        else:
-            missing_areas.append("specific implementation steps and recommendations")
-        
-        # 4. Conflict identification
-        if any(keyword in report_lower for keyword in ['conflict', 'issue', 'problem', 'consideration']):
-            criteria_met += 1
-        else:
-            missing_areas.append("potential conflicts or issues identification")
-        
-        # 5. Code examples/patterns
-        if any(keyword in report_lower for keyword in ['pattern', 'example', 'code', 'structure']):
-            criteria_met += 1
-        else:
-            missing_areas.append("concrete code examples or patterns from the codebase")
-        
-        # 6. Architecture understanding
-        if any(keyword in report_lower for keyword in ['architecture', 'structure', 'organization', 'framework']):
-            criteria_met += 1
-        else:
-            missing_areas.append("understanding of project architecture and conventions")
-        
-        # 7. Dependencies consideration
-        if any(keyword in report_lower for keyword in ['depend', 'library', 'package', 'requirement']):
-            criteria_met += 1
-        else:
-            missing_areas.append("consideration of dependencies and compatibility")
-        
-        # Calculate completeness score
-        completeness_score = criteria_met / total_criteria
-        
-        # Task-specific adjustments
-        if 'auth' in task_lower and 'security' not in report_lower:
-            missing_areas.append("security considerations for authentication implementation")
-            completeness_score *= 0.9
-        
-        if 'api' in task_lower and 'endpoint' not in report_lower:
-            missing_areas.append("API endpoint design and routing considerations")
-            completeness_score *= 0.95
-        
-        return completeness_score, missing_areas
-    
-    def _generate_acceptance_feedback(self, completeness_score: float) -> str:
-        """Generate feedback message for accepted analysis."""
-        return f"""Analysis review complete - ACCEPTED
+        if not isinstance(raw_response, str):
+            raw_response = str(raw_response)
 
-The analysis demonstrates sufficient completeness for implementation guidance with a score of {completeness_score:.2f}.
+        # Try to extract JSON object from the response
+        json_text = None
 
-The report provides adequate coverage of:
-- Existing functionality identification
-- Integration strategies
-- Implementation recommendations
-- Architectural considerations
+        # 1) Exact JSON on first line
+        first_line = raw_response.strip().splitlines()[0] if raw_response.strip() else ""
+        if first_line.startswith("{") and first_line.endswith("}"):
+            json_text = first_line
+        else:
+            # 2) Look for fenced JSON ```json ... ``` or any {...}
+            fenced = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", raw_response, re.IGNORECASE)
+            if fenced:
+                json_text = fenced.group(1)
+            else:
+                obj = re.search(r"(\{[\s\S]*\})", raw_response)
+                if obj:
+                    json_text = obj.group(1)
 
-The analysis meets the standards for proceeding with implementation planning."""
-    
-    def _generate_rejection_feedback(self, missing_areas: List[str], task_description: str) -> str:
-        """Generate feedback message for rejected analysis with guidance."""
-        feedback_parts = [
-            "Analysis review complete - REQUIRES DEEPER ANALYSIS",
-            "",
-            "The current analysis is incomplete for providing actionable implementation guidance.",
-            "",
-            "Missing areas that need attention:"
-        ]
-        
-        for area in missing_areas[:5]:  # Limit to top 5 missing areas
-            feedback_parts.append(f"- {area}")
-        
-        # Add task-specific guidance
-        task_guidance = self._get_task_specific_guidance(task_description)
-        if task_guidance:
-            feedback_parts.extend(["", "Task-specific guidance:", task_guidance])
-        
-        feedback_parts.extend([
-            "",
-            "Focus on gathering information about these areas to provide comprehensive implementation guidance.",
-            f"Review {self.review_count}/{self.max_reviews} - Continue analysis to address these gaps."
-        ])
-        
-        return "\n".join(feedback_parts)
-    
-    def _get_task_specific_guidance(self, task_description: str) -> str:
-        """Generate task-specific guidance based on the task description."""
-        task_lower = task_description.lower()
-        guidance_parts = []
-        
-        if 'auth' in task_lower or 'login' in task_lower:
-            guidance_parts.append("- Examine existing user management and session handling mechanisms")
-            guidance_parts.append("- Identify current security measures and authentication flows")
-            guidance_parts.append("- Assess database schema for user-related tables and relationships")
-        
-        if 'api' in task_lower:
-            guidance_parts.append("- Analyze existing API structure and routing patterns")
-            guidance_parts.append("- Identify middleware and request/response handling conventions")
-            guidance_parts.append("- Examine error handling and validation approaches")
-        
-        if 'database' in task_lower or 'model' in task_lower:
-            guidance_parts.append("- Investigate data model relationships and constraints")
-            guidance_parts.append("- Examine migration patterns and database evolution strategy")
-            guidance_parts.append("- Assess ORM usage and database interaction patterns")
-        
-        if 'frontend' in task_lower or 'ui' in task_lower:
-            guidance_parts.append("- Analyze component structure and state management patterns")
-            guidance_parts.append("- Examine routing and navigation implementation")
-            guidance_parts.append("- Identify styling and theming approaches")
-        
-        return "\n".join(guidance_parts) if guidance_parts else ""
-    
-    def reset_review_count(self) -> None:
-        """Reset review count for new analysis cycle."""
-        self.review_count = 0
+        if not json_text:
+            return False, "", 0.0
+
+        try:
+            data = json.loads(json_text)
+            is_complete = bool(data.get("is_complete", False))
+            feedback = str(data.get("feedback", "")).strip()
+            confidence_raw = data.get("confidence", 0.0)
+            try:
+                confidence = float(confidence_raw)
+            except (TypeError, ValueError):
+                confidence = 0.0
+
+            # Clamp confidence to [0,1]
+            confidence = max(0.0, min(1.0, confidence))
+
+            return is_complete, feedback, confidence
+        except Exception:
+            return False, "", 0.0
     
     @property
     def agent(self) -> AssistantAgent:
         """Get the underlying AutoGen agent."""
         return self._agent
     
-    @property
-    def has_reviews_remaining(self) -> bool:
-        """Check if there are reviews remaining."""
-        return self.review_count < self.max_reviews
