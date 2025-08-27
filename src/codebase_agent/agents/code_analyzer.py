@@ -32,24 +32,25 @@ class CodeAnalyzer:
         self.shell_tool = shell_tool
         self.logger = logging.getLogger(__name__)
         
-        # Analysis state tracking
-        self.current_iteration = 0
-        self.knowledge_base: List[str] = []
-        self.confidence_level = 0.0
-        self.max_iterations = 5
-        self.confidence_threshold = 0.8
-        
-        # Initialize AutoGen agent
+        # Initialize AutoGen agent with shell tool capability
         self._agent = self._create_autogen_agent()
     
     def _create_autogen_agent(self) -> AssistantAgent:
-        """Create and configure the AutoGen AssistantAgent."""
+        """Create and configure the AutoGen AssistantAgent with shell tool capability."""
         system_message = self._get_system_message()
         
+        # Create the agent with shell tool access
         agent = AssistantAgent(
             name="code_analyzer",
             system_message=system_message,
-            model_client=self.config,  # Updated for new API
+            model_client=self.config,
+        )
+        
+        # Register shell tool with the agent
+        agent.register_tool(
+            name="execute_shell_command",
+            func=self.shell_tool.execute_command,
+            description="Execute read-only shell commands for codebase analysis. Returns (success, stdout, stderr)."
         )
         
         return agent
@@ -60,7 +61,7 @@ class CodeAnalyzer:
 
 Your capabilities:
 - Multi-round iterative analysis with self-assessment
-- Shell command execution for codebase exploration  
+- Shell command execution for codebase exploration via execute_shell_command tool
 - Progressive knowledge building and confidence assessment
 - Strategic command selection based on task context
 
@@ -93,242 +94,274 @@ When ready to provide analysis, include:
 - Integration points and connection strategies
 - Implementation recommendations based on existing patterns
 - Potential conflicts or considerations
-- Confidence assessment and reasoning"""
+- Confidence assessment and reasoning
 
-    def analyze_codebase(self, task_description: str, codebase_path: str) -> Tuple[str, bool, int]:
+Use the execute_shell_command tool to explore the codebase systematically."""
+
+    def analyze_codebase(self, query: str, codebase_path: str) -> str:
         """
-        Perform multi-round analysis of the codebase for the given task.
+        Analyze codebase with multi-round self-iteration for progressive analysis.
         
         Args:
-            task_description: User's task description
+            query: User's analysis request
             codebase_path: Path to the codebase to analyze
             
         Returns:
-            Tuple of (analysis_report, is_complete, iteration_count)
+            Comprehensive analysis result
         """
-        self.logger.info(f"Starting codebase analysis for task: {task_description}")
+        # Initialize iteration state
+        max_iterations = 10
+        current_iteration = 0
+        analysis_context = []
+        convergence_indicators = {
+            'sufficient_code_coverage': False,
+            'question_answered': False,
+            'confidence_threshold_met': False
+        }
         
-        # Reset analysis state
-        self._reset_analysis_state()
-        
-        # Set working directory for shell tool
-        self.shell_tool.working_directory = codebase_path
-        
-        # Multi-round analysis loop
-        while self.current_iteration < self.max_iterations:
-            self.current_iteration += 1
+        while current_iteration < max_iterations:
+            current_iteration += 1
             
-            self.logger.info(f"Analysis iteration {self.current_iteration}/{self.max_iterations}")
+            # Prepare iteration-specific prompt
+            iteration_prompt = self._build_iteration_prompt(
+                query, codebase_path, current_iteration, analysis_context, convergence_indicators
+            )
             
-            # Perform analysis iteration
-            iteration_report = self._perform_analysis_iteration(task_description)
+            # Execute analysis step with agent
+            step_response = self.agent.on_messages([
+                {"role": "user", "content": iteration_prompt}
+            ])
             
-            # Update knowledge base
-            self._update_knowledge_base(iteration_report)
+            # Store analysis step
+            analysis_context.append({
+                'iteration': current_iteration,
+                'response': step_response,
+                'timestamp': self._get_timestamp()
+            })
             
-            # Assess completeness and confidence
-            is_complete, confidence = self._assess_analysis_completeness(task_description)
-            self.confidence_level = confidence
+            # Assess convergence
+            convergence_indicators = self._assess_convergence(step_response, query, analysis_context)
             
-            self.logger.info(f"Iteration {self.current_iteration} confidence: {confidence:.2f}")
-            
-            # Check convergence criteria
-            if is_complete and confidence >= self.confidence_threshold:
-                self.logger.info(f"Analysis converged after {self.current_iteration} iterations")
+            # Check if analysis is complete
+            if self._should_terminate(convergence_indicators):
                 break
                 
-            if self.current_iteration >= self.max_iterations:
-                self.logger.warning("Reached maximum iterations without convergence")
-                break
-        
-        # Generate comprehensive final report
-        final_report = self._generate_final_report(task_description)
-        
-        return final_report, self.confidence_level >= self.confidence_threshold, self.current_iteration
+        # Synthesize final response
+        return self._synthesize_final_response(query, analysis_context, convergence_indicators)
     
-    def _reset_analysis_state(self) -> None:
-        """Reset analysis state for new analysis."""
-        self.current_iteration = 0
-        self.knowledge_base = []
-        self.confidence_level = 0.0
-    
-    def _perform_analysis_iteration(self, task_description: str) -> str:
+    def _build_iteration_prompt(self, query: str, codebase_path: str, iteration: int, 
+                               context: list, convergence: dict) -> str:
+        """Build iteration-specific prompt for progressive analysis."""
+        
+        base_prompt = f"""
+        CODEBASE ANALYSIS - ITERATION {iteration}
+        
+        Target: {codebase_path}
+        User Query: {query}
+        
+        ULTIMATE GOAL: Create a comprehensive, detailed report that thoroughly addresses the user's query.
+        Your final deliverable should be a well-structured analysis that provides actionable insights and complete answers.
+        
+        Remember: Each exploration step should contribute towards building this detailed report.
+        
         """
-        Perform a single analysis iteration.
         
-        Args:
-            task_description: User's task description
+        # Progressive search strategy: targeted → broader → comprehensive
+        if iteration == 1:
+            # Stage 1: Targeted exploration
+            base_prompt += """
+            STAGE 1 - TARGETED EXPLORATION:
             
-        Returns:
-            Analysis report for this iteration
-        """
-        # Generate analysis prompt for this iteration
-        iteration_prompt = self._create_iteration_prompt(task_description)
-        
-        # Execute analysis through AutoGen agent
-        try:
-            # For now, we'll simulate the analysis logic
-            # In full implementation, this would use the AutoGen agent
-            iteration_report = self._execute_analysis_commands(task_description)
-            return iteration_report
+            MISSION: Quickly identify the most relevant code areas for answering the user's question.
             
-        except Exception as e:
-            self.logger.error(f"Error in analysis iteration {self.current_iteration}: {e}")
-            return f"Error during analysis iteration: {str(e)}"
-    
-    def _create_iteration_prompt(self, task_description: str) -> str:
-        """Create prompt for current analysis iteration."""
-        context = ""
-        if self.knowledge_base:
-            context = f"Previous knowledge accumulated:\n{' '.join(self.knowledge_base[-3:])}\n\n"
-        
-        return f"""{context}Task: {task_description}
-
-Current iteration: {self.current_iteration}/{self.max_iterations}
-Confidence level: {self.confidence_level:.2f}
-
-Perform the next analysis iteration. Focus on areas that need deeper investigation
-based on the task requirements and current knowledge."""
-    
-    def _execute_analysis_commands(self, task_description: str) -> str:
-        """
-        Execute shell commands for codebase analysis.
-        
-        This method implements the core analysis logic using shell commands.
-        """
-        commands_executed = []
-        findings = []
-        
-        # Extract keywords from task description for targeted search
-        keywords = self._extract_task_keywords(task_description)
-        
-        try:
-            # Phase 1: Project structure exploration
-            if self.current_iteration == 1:
-                # Get project overview
-                success, stdout, stderr = self.shell_tool.execute_command("find . -type f -name '*.py' | head -20")
-                if success:
-                    commands_executed.append("find . -type f -name '*.py' | head -20")
-                    findings.append(f"Python files found: {len(stdout.splitlines())} (showing first 20)")
-                
-                # Check project structure
-                success, stdout, stderr = self.shell_tool.execute_command("ls -la")
-                if success:
-                    commands_executed.append("ls -la")
-                    findings.append(f"Project root structure identified")
+            Start with the most specific and likely relevant areas:
+            1. Extract keywords from the user query
+            2. Use targeted 'find' or 'grep' commands to locate files matching these keywords
+            3. Look for obvious entry points (main.py, index.js, README.md)
+            4. Focus on file names, function names, or class names that directly relate to the query
+            5. Prioritize files that are most likely to contain the answer
             
-            # Phase 2: Targeted keyword search
-            for keyword in keywords[:3]:  # Limit to top 3 keywords
-                success, stdout, stderr = self.shell_tool.execute_command(f"find . -name '*.py' | xargs grep -l '{keyword}' | head -10")
-                if success and stdout.strip():
-                    commands_executed.append(f"grep search for '{keyword}'")
-                    findings.append(f"Files containing '{keyword}': {len(stdout.splitlines())}")
+            Keep in mind: This is the foundation for your comprehensive report - focus on finding the right starting points.
+            """
+        elif iteration == 2:
+            # Stage 2: Contextual expansion
+            base_prompt += f"""
+            STAGE 2 - CONTEXTUAL EXPANSION:
             
-            # Phase 3: Deeper file content analysis (later iterations)
-            if self.current_iteration > 2:
-                # Examine specific files based on previous findings
-                success, stdout, stderr = self.shell_tool.execute_command("find . -name 'models.py' -o -name 'model.py' | head -5")
-                if success and stdout.strip():
-                    commands_executed.append("Model file search")
-                    findings.append("Model files identified for detailed analysis")
+            MISSION: Build comprehensive context around your initial findings.
             
-        except Exception as e:
-            self.logger.error(f"Error executing analysis commands: {e}")
-            findings.append(f"Command execution error: {str(e)}")
+            Previous findings:
+            {self._summarize_previous_context(context[-1:])}
+            
+            Expand around the areas you've already identified:
+            1. Explore related files in the same directories
+            2. Look for imports/dependencies of files you've found
+            3. Check for configuration files, tests, or documentation related to your findings
+            4. Use 'grep -r' to find broader usage patterns
+            5. Examine file structure and relationships
+            
+            Keep in mind: You're building the structural understanding needed to thoroughly address the user's question.
+            """
+        elif iteration == 3:
+            # Stage 3: Deeper analysis
+            base_prompt += f"""
+            STAGE 3 - DEEPER ANALYSIS:
+            
+            MISSION: Dive deep into implementation details to gather concrete evidence for your report.
+            
+            Previous findings:
+            {self._summarize_previous_context(context[-2:])}
+            
+            Dive deeper into the code logic:
+            1. Read actual code content of relevant files
+            2. Understand implementation details and algorithms
+            3. Look for edge cases, error handling, or special conditions
+            4. Trace execution flows and data transformations
+            5. Check for comments, docstrings, or inline documentation
+            
+            Keep in mind: Gather specific examples and technical details that will make your report actionable and complete.
+            """
+        elif iteration == 4:
+            # Stage 4: Comprehensive coverage
+            base_prompt += f"""
+            STAGE 4 - COMPREHENSIVE COVERAGE:
+            
+            MISSION: Ensure no critical information is missing from your analysis.
+            
+            Previous findings:
+            {self._summarize_previous_context(context[-3:])}
+            
+            Ensure complete coverage and fill gaps:
+            1. Look for any missing pieces or alternative implementations
+            2. Check for recent changes or version differences
+            3. Explore less obvious but potentially relevant areas
+            4. Verify your understanding against multiple sources
+            5. Look for performance considerations, security aspects, or architectural patterns
+            
+            Keep in mind: This is your chance to validate and complete your findings before synthesis.
+            """
+        else:
+            # Stage 5+: Validation and synthesis
+            base_prompt += f"""
+            STAGE {iteration} - VALIDATION & SYNTHESIS:
+            
+            MISSION: Prepare your final comprehensive report.
+            
+            Full analysis history:
+            {self._summarize_previous_context(context)}
+            
+            Current convergence status:
+            - Code coverage sufficient: {convergence['sufficient_code_coverage']}
+            - Question answered: {convergence['question_answered']}
+            - Confidence met: {convergence['confidence_threshold_met']}
+            
+            Focus on validation and final synthesis:
+            1. Double-check any uncertain findings from previous iterations
+            2. Resolve any contradictions or inconsistencies
+            3. Gather final evidence for remaining uncertainties
+            4. Prepare comprehensive answer synthesis
+            5. Validate your conclusions against the original query
+            
+            Keep in mind: You're preparing the final detailed report - ensure it's comprehensive, accurate, and actionable.
+            """
         
-        # Generate iteration report
-        report = f"""
-Analysis Iteration {self.current_iteration} Report:
-Commands executed: {len(commands_executed)}
-Key findings:
-{chr(10).join(f"- {finding}" for finding in findings)}
-
-Analysis strategy: {'Initial exploration' if self.current_iteration == 1 else 'Targeted investigation'}
-"""
+        # Add convergence-specific guidance
+        if iteration > 1:
+            base_prompt += "\n\nPRIORITY AREAS TO ADDRESS:\n"
+            if not convergence['sufficient_code_coverage']:
+                base_prompt += "- Explore additional relevant files or directories\n"
+            if not convergence['question_answered']:
+                base_prompt += "- Look for specific information to answer the user's question\n"
+            if not convergence['confidence_threshold_met']:
+                base_prompt += "- Gather more evidence to increase confidence in findings\n"
         
-        return report
-    
-    def _extract_task_keywords(self, task_description: str) -> List[str]:
-        """Extract relevant keywords from task description for targeted search."""
-        # Simple keyword extraction logic
-        # In full implementation, this would be more sophisticated
-        keywords = []
+        base_prompt += """
         
-        task_lower = task_description.lower()
+        ITERATION OUTPUT REQUIREMENTS:
+        1. What you discovered in this iteration
+        2. Your confidence level (1-10) in providing a comprehensive answer
+        3. Whether you need more information and what specific areas to explore next
+        4. If confident enough (8+), provide your comprehensive analysis
         
-        # Authentication-related keywords
-        if any(word in task_lower for word in ['auth', 'login', 'user', 'password']):
-            keywords.extend(['auth', 'user', 'login', 'password', 'session'])
-        
-        # API-related keywords
-        if any(word in task_lower for word in ['api', 'endpoint', 'route']):
-            keywords.extend(['api', 'route', 'endpoint', 'controller'])
-        
-        # Database-related keywords
-        if any(word in task_lower for word in ['database', 'model', 'orm']):
-            keywords.extend(['model', 'database', 'orm', 'migration'])
-        
-        # Frontend-related keywords
-        if any(word in task_lower for word in ['frontend', 'react', 'component']):
-            keywords.extend(['component', 'react', 'frontend', 'jsx'])
-        
-        return list(set(keywords))  # Remove duplicates
-    
-    def _update_knowledge_base(self, iteration_report: str) -> None:
-        """Update knowledge base with findings from current iteration."""
-        self.knowledge_base.append(iteration_report)
-        
-        # Keep only last 5 reports to prevent memory bloat
-        if len(self.knowledge_base) > 5:
-            self.knowledge_base = self.knowledge_base[-5:]
-    
-    def _assess_analysis_completeness(self, task_description: str) -> Tuple[bool, float]:
+        Use shell commands to explore the codebase systematically.
+        Remember: Every command should contribute to building your comprehensive report.
         """
-        Assess if analysis is complete and return confidence level.
         
-        Returns:
-            Tuple of (is_complete, confidence_level)
-        """
-        # Simple assessment logic based on iteration count and knowledge accumulation
-        base_confidence = min(0.2 * self.current_iteration, 0.8)
-        
-        # Boost confidence if we have substantial knowledge
-        knowledge_bonus = min(0.1 * len(self.knowledge_base), 0.2)
-        
-        confidence = base_confidence + knowledge_bonus
-        
-        # Consider complete if confidence is above threshold or max iterations reached
-        is_complete = confidence >= self.confidence_threshold or self.current_iteration >= self.max_iterations
-        
-        return is_complete, confidence
+        return base_prompt
     
-    def _generate_final_report(self, task_description: str) -> str:
-        """Generate comprehensive final analysis report."""
-        knowledge_summary = "\n".join(self.knowledge_base)
+    def _assess_convergence(self, response: str, query: str, context: list) -> dict:
+        """Assess whether analysis has converged based on response quality."""
+        convergence = {
+            'sufficient_code_coverage': False,
+            'question_answered': False,
+            'confidence_threshold_met': False
+        }
         
-        return f"""
-# Codebase Analysis Report
-
-## Task: {task_description}
-
-## Analysis Summary
-- Total iterations performed: {self.current_iteration}
-- Final confidence level: {self.confidence_level:.2f}
-- Analysis status: {'Complete' if self.confidence_level >= self.confidence_threshold else 'Incomplete'}
-
-## Findings
-{knowledge_summary}
-
-## Recommendations
-Based on the analysis performed across {self.current_iteration} iterations, the codebase structure and patterns have been identified. Implementation should follow the existing architectural patterns found during exploration.
-
-## Integration Points
-Key integration areas have been identified through systematic exploration of the codebase structure and existing implementations.
-
-## Implementation Strategy
-The analysis suggests following the established patterns and conventions found in the codebase for consistent implementation.
-"""
-
+        response_lower = response.lower()
+        
+        # Check for confidence indicators
+        confidence_keywords = ['confident', 'certain', 'found', 'complete', 'comprehensive']
+        if any(keyword in response_lower for keyword in confidence_keywords):
+            convergence['confidence_threshold_met'] = True
+            
+        # Check for specific answer indicators
+        answer_keywords = ['answer', 'solution', 'result', 'conclusion', 'summary']
+        if any(keyword in response_lower for keyword in answer_keywords):
+            convergence['question_answered'] = True
+            
+        # Check for code coverage indicators (file exploration, code analysis)
+        coverage_keywords = ['file', 'function', 'class', 'code', 'implementation']
+        coverage_count = sum(1 for keyword in coverage_keywords if keyword in response_lower)
+        if coverage_count >= 3 or len(context) >= 2:
+            convergence['sufficient_code_coverage'] = True
+            
+        return convergence
+    
+    def _should_terminate(self, convergence: dict) -> bool:
+        """Determine if analysis should terminate based on convergence indicators."""
+        # Terminate if all convergence criteria are met
+        return all(convergence.values())
+    
+    def _summarize_previous_context(self, context: list) -> str:
+        """Summarize findings from previous iterations."""
+        if not context:
+            return "No previous iterations."
+            
+        summary = ""
+        for step in context:
+            # Extract key findings (first 300 chars for better context)
+            response_summary = step['response'][:300] + "..." if len(step['response']) > 300 else step['response']
+            summary += f"\nIteration {step['iteration']}: {response_summary}"
+            
+        return summary
+    
+    def _synthesize_final_response(self, query: str, context: list, convergence: dict) -> str:
+        """Synthesize final comprehensive response from all iterations."""
+        if not context:
+            return "No analysis performed."
+            
+        # Get the most recent and comprehensive response
+        final_analysis = context[-1]['response']
+        
+        # Add synthesis header
+        synthesis = f"""
+        CODEBASE ANALYSIS COMPLETE
+        
+        Query: {query}
+        Iterations: {len(context)}
+        Convergence Status: {convergence}
+        
+        ANALYSIS RESULT:
+        {final_analysis}
+        """
+        
+        return synthesis
+    
+    def _get_timestamp(self) -> str:
+        """Get current timestamp for logging."""
+        import datetime
+        return datetime.datetime.now().isoformat()
+    
     @property
     def agent(self) -> AssistantAgent:
         """Get the underlying AutoGen agent."""
