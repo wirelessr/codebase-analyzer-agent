@@ -295,6 +295,31 @@ class TestCodeAnalyzer:
         assert "confidence level (1-10)" in prompt
         assert "comprehensive analysis" in prompt
 
+    def test_iteration_prompt_with_specialist_feedback(self, analyzer):
+        """Test that specialist feedback is properly incorporated into iteration prompts."""
+        specialist_feedback = "Need deeper analysis of existing authentication mechanisms and their integration patterns"
+        
+        prompt = analyzer._build_iteration_prompt(
+            "implement OAuth authentication", "/test/path", 2, [], 
+            {'sufficient_code_coverage': False, 'question_answered': False, 'confidence_threshold_met': False},
+            specialist_feedback
+        )
+        
+        assert "🎯 TASK SPECIALIST FEEDBACK" in prompt
+        assert "PRIORITY FOCUS AREAS" in prompt
+        assert specialist_feedback in prompt
+        assert "Address the above feedback areas as your primary focus" in prompt
+
+    def test_iteration_prompt_without_specialist_feedback(self, analyzer):
+        """Test that prompts work normally when no specialist feedback is provided."""
+        prompt = analyzer._build_iteration_prompt(
+            "implement OAuth authentication", "/test/path", 1, [], 
+            {'sufficient_code_coverage': False, 'question_answered': False, 'confidence_threshold_met': False}
+        )
+        
+        assert "🎯 TASK SPECIALIST FEEDBACK" not in prompt
+        assert "PRIORITY FOCUS AREAS" not in prompt
+
 
 class TestCodeAnalyzerEdgeCases:
     """Test edge cases and error handling."""
@@ -358,6 +383,29 @@ class TestCodeAnalyzerEdgeCases:
         # Verify final response includes information from all iterations
         assert "CODEBASE ANALYSIS COMPLETE" in result
         assert "Final comprehensive answer" in result
+
+    def test_analyze_codebase_with_specialist_feedback(self, analyzer_with_mock_agent):
+        """Test that analyze_codebase accepts and uses specialist feedback."""
+        # Provide multiple responses to handle potential iterations
+        analyzer_with_mock_agent._agent.on_messages.side_effect = [
+            "First iteration with feedback, continue analysis",
+            "Second iteration, confidence 9, comprehensive answer"
+        ]
+        
+        specialist_feedback = "Need deeper analysis of database integration patterns"
+        result = analyzer_with_mock_agent.analyze_codebase(
+            "implement OAuth", "/path", specialist_feedback=specialist_feedback
+        )
+        
+        # Verify that the method accepts the specialist_feedback parameter
+        assert "CODEBASE ANALYSIS COMPLETE" in result
+        
+        # Check that the first call was made with the feedback incorporated
+        first_call_args = analyzer_with_mock_agent._agent.on_messages.call_args_list[0][0][0]
+        assert isinstance(first_call_args, list) and first_call_args[0]["role"] == "user"
+        content = first_call_args[0]["content"]
+        assert "🎯 TASK SPECIALIST FEEDBACK" in content
+        assert specialist_feedback in content
 
 
 if __name__ == "__main__":

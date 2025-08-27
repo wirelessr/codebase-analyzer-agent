@@ -98,13 +98,14 @@ When ready to provide analysis, include:
 
 Use the execute_shell_command tool to explore the codebase systematically."""
 
-    def analyze_codebase(self, query: str, codebase_path: str) -> str:
+    def analyze_codebase(self, query: str, codebase_path: str, specialist_feedback: Optional[str] = None) -> str:
         """
         Analyze codebase with multi-round self-iteration for progressive analysis.
         
         Args:
             query: User's analysis request
             codebase_path: Path to the codebase to analyze
+            specialist_feedback: Optional feedback from Task Specialist to guide analysis focus
             
         Returns:
             Comprehensive analysis result
@@ -124,7 +125,7 @@ Use the execute_shell_command tool to explore the codebase systematically."""
             
             # Prepare iteration-specific prompt
             iteration_prompt = self._build_iteration_prompt(
-                query, codebase_path, current_iteration, analysis_context, convergence_indicators
+                query, codebase_path, current_iteration, analysis_context, convergence_indicators, specialist_feedback
             )
             
             # Execute analysis step with agent
@@ -150,7 +151,7 @@ Use the execute_shell_command tool to explore the codebase systematically."""
         return self._synthesize_final_response(query, analysis_context, convergence_indicators)
     
     def _build_iteration_prompt(self, query: str, codebase_path: str, iteration: int, 
-                               context: list, convergence: dict) -> str:
+                               context: list, convergence: dict, specialist_feedback: Optional[str] = None) -> str:
         """Build iteration-specific prompt for progressive analysis."""
         
         base_prompt = f"""
@@ -163,6 +164,18 @@ Use the execute_shell_command tool to explore the codebase systematically."""
         Your final deliverable should be a well-structured analysis that provides actionable insights and complete answers.
         
         Remember: Each exploration step should contribute towards building this detailed report.
+        
+        """
+        
+        # Add specialist feedback if provided
+        if specialist_feedback:
+            base_prompt += f"""
+        🎯 TASK SPECIALIST FEEDBACK - PRIORITY FOCUS AREAS:
+        {specialist_feedback}
+        
+        IMPORTANT: Address the above feedback areas as your primary focus. The Task Specialist has identified 
+        these as critical gaps in the previous analysis. Make sure to specifically target these areas in your 
+        exploration strategy.
         
         """
         
