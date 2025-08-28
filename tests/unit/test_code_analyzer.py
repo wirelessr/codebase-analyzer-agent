@@ -402,8 +402,13 @@ class TestCodeAnalyzerEdgeCases:
         
         # Check that the first call was made with the feedback incorporated
         first_call_args = analyzer_with_mock_agent._agent.on_messages.call_args_list[0][0][0]
-        assert isinstance(first_call_args, list) and first_call_args[0]["role"] == "user"
-        content = first_call_args[0]["content"]
+        assert isinstance(first_call_args, list) and len(first_call_args) > 0
+        first_message = first_call_args[0]
+        # Extract content from UserMessage object
+        if hasattr(first_message, 'content'):
+            content = first_message.content
+        else:
+            content = str(first_message)
         assert "🎯 TASK SPECIALIST FEEDBACK" in content
         assert specialist_feedback in content
 

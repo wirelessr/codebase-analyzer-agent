@@ -129,24 +129,36 @@ Use the execute_shell_command tool to explore the codebase systematically."""
             import asyncio
             import autogen_core
             
-            async def run_step():
+            def run_step():
                 from autogen_agentchat.messages import UserMessage
                 cancellation_token = autogen_core.CancellationToken()
                 
                 user_message = UserMessage(content=iteration_prompt, source="user")
-                return await self.agent.on_messages([user_message], cancellation_token)
+                return self.agent.on_messages([user_message], cancellation_token)
             
-            step_response = asyncio.run(run_step())
+            step_response = run_step()
+            
+            # Extract text from Response object if needed
+            response_text = step_response
+            if hasattr(step_response, 'chat_message'):
+                if hasattr(step_response.chat_message, 'content'):
+                    response_text = step_response.chat_message.content
+                elif hasattr(step_response.chat_message, 'to_text'):
+                    response_text = step_response.chat_message.to_text()
+                else:
+                    response_text = str(step_response.chat_message)
+            elif not isinstance(step_response, str):
+                response_text = str(step_response)
             
             # Store analysis step
             analysis_context.append({
                 'iteration': current_iteration,
-                'response': step_response,
+                'response': response_text,
                 'timestamp': self._get_timestamp()
             })
             
             # Assess convergence
-            convergence_indicators = self._assess_convergence(step_response, query, analysis_context)
+            convergence_indicators = self._assess_convergence(response_text, query, analysis_context)
             
             # Check if analysis is complete
             if self._should_terminate(convergence_indicators):

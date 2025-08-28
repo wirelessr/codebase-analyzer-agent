@@ -66,13 +66,21 @@ REQUEST_TIMEOUT=60
         env_file = temp_project_root / ".env"
         env_file.write_text(valid_env_content)
         
-        config_manager = ConfigurationManager(temp_project_root)
-        config_manager.load_environment()
-        
-        assert config_manager._is_loaded
-        assert config_manager._config["OPENAI_API_KEY"] == "sk-test123456789"
-        assert config_manager._config["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
-        assert config_manager._config["OPENAI_MODEL"] == "gpt-4"
+        # Clear any existing environment variables to ensure clean test
+        env_vars_to_clear = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", 
+                            "MODEL_TEMPERATURE", "MAX_TOKENS", "REQUEST_TIMEOUT"]
+        with patch.dict(os.environ, {}, clear=False):
+            # Remove specific environment variables
+            for var in env_vars_to_clear:
+                os.environ.pop(var, None)
+            
+            config_manager = ConfigurationManager(temp_project_root)
+            config_manager.load_environment()
+            
+            assert config_manager._is_loaded
+            assert config_manager._config["OPENAI_API_KEY"] == "sk-test123456789"
+            assert config_manager._config["OPENAI_BASE_URL"] == "https://api.openai.com/v1"
+            assert config_manager._config["OPENAI_MODEL"] == "gpt-4"
     
     def test_load_environment_without_env_file(self, temp_project_root):
         """Test loading environment without .env file."""

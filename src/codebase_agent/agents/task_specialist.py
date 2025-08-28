@@ -115,9 +115,11 @@ Your role is strategic oversight, not technical execution."""
         # Primary path: Ask the LLM to perform the review with a structured prompt
         try:
             review_prompt = self._build_review_prompt(task_description, analysis_report, self.review_count)
+            from autogen_core import CancellationToken
+            cancellation_token = CancellationToken()
             llm_response = self.agent.on_messages([
                 {"role": "user", "content": review_prompt}
-            ])
+            ], cancellation_token)
             is_complete, feedback, confidence = self._parse_llm_review_response(llm_response)
 
             # If parsing succeeded, honor LLM decision
@@ -189,11 +191,20 @@ Examples:
 """
     )
 
-    def _parse_llm_review_response(self, raw_response: str) -> Tuple[bool, str, float]:
+    def _parse_llm_review_response(self, raw_response) -> Tuple[bool, str, float]:
         """Parse the LLM response and extract the JSON decision.
 
         Supports plain JSON or fenced code blocks. Falls back to empty feedback on failure.
         """
+        # Handle AutoGen Response object
+        if hasattr(raw_response, 'chat_message'):
+            if hasattr(raw_response.chat_message, 'content'):
+                raw_response = raw_response.chat_message.content
+            elif hasattr(raw_response.chat_message, 'to_text'):
+                raw_response = raw_response.chat_message.to_text()
+            else:
+                raw_response = str(raw_response.chat_message)
+        
         if not isinstance(raw_response, str):
             raw_response = str(raw_response)
 

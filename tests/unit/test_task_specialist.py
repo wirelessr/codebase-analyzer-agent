@@ -20,7 +20,7 @@ class TestTaskSpecialist:
 
     @pytest.fixture
     def mock_agent(self):
-        with patch('src.codebase_agent.agents.task_specialist.AssistantAgent') as MockAgent:
+        with patch('codebase_agent.agents.task_specialist.AssistantAgent') as MockAgent:
             instance = Mock()
             instance.name = "task_specialist"
             instance.on_messages = Mock()
@@ -32,7 +32,7 @@ class TestTaskSpecialist:
         return TaskSpecialist(sample_config)
 
     def test_initialization(self, sample_config):
-        with patch('src.codebase_agent.agents.task_specialist.AssistantAgent') as mock_cls:
+        with patch('codebase_agent.agents.task_specialist.AssistantAgent') as mock_cls:
             specialist = TaskSpecialist(sample_config)
             assert specialist.config == sample_config
             assert specialist.review_count == 0
