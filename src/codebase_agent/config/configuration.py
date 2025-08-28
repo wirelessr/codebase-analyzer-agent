@@ -194,25 +194,129 @@ class ConfigurationManager:
     def get_model_client(self):
         """Get ChatCompletionClient for new AutoGen API.
         
+        Uses AutoGen's built-in model info for known models when possible,
+        falls back to manual configuration for unknown models.
+        
         Returns:
             OpenAIChatCompletionClient instance.
         """
         from autogen_ext.models.openai import OpenAIChatCompletionClient
         
         llm_config = self.get_llm_config()
-        model_info = self.get_model_info()
         
-        return OpenAIChatCompletionClient(
-            model=llm_config.model,
-            api_key=llm_config.api_key,
-            base_url=llm_config.base_url,
-            max_tokens=llm_config.max_tokens,
-            temperature=llm_config.temperature,
-            model_info=model_info,
-        )
+        # First try to create client without model_info to use AutoGen's built-in detection
+        try:
+            return OpenAIChatCompletionClient(
+                model=llm_config.model,
+                api_key=llm_config.api_key,
+                base_url=llm_config.base_url,
+                max_tokens=llm_config.max_tokens,
+                temperature=llm_config.temperature,
+            )
+        except Exception as e:
+            # If AutoGen doesn't recognize the model, try fuzzy matching
+            if "model_info is required" in str(e):
+                recognized_model = self._try_fuzzy_model_matching(llm_config.model)
+                if recognized_model:
+                    try:
+                        return OpenAIChatCompletionClient(
+                            model=recognized_model,
+                            api_key=llm_config.api_key,
+                            base_url=llm_config.base_url,
+                            max_tokens=llm_config.max_tokens,
+                            temperature=llm_config.temperature,
+                        )
+                    except:
+                        pass  # Fall back to manual model_info
+                
+                # Fall back to manual model_info
+                model_info = self.get_model_info()
+                return OpenAIChatCompletionClient(
+                    model=llm_config.model,
+                    api_key=llm_config.api_key,
+                    base_url=llm_config.base_url,
+                    max_tokens=llm_config.max_tokens,
+                    temperature=llm_config.temperature,
+                    model_info=model_info,
+                )
+            else:
+                # Re-raise other errors
+                raise
+    
+    def _try_fuzzy_model_matching(self, model_name: str) -> Optional[str]:
+        """Try to match unknown model names to known AutoGen models.
+        
+        Args:
+            model_name: The model name to match.
+            
+        Returns:
+            Recognized model name or None if no match found.
+        """
+        # Known models that AutoGen recognizes
+        known_models = [
+            'gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 
+            'gpt-3.5-turbo', 'gpt-3.5-turbo-16k',
+            'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
+            'claude-3-5-sonnet', 'claude-3-5-haiku',
+            'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'
+        ]
+        
+        model_lower = model_name.lower().strip()
+        
+        # Return None for empty or whitespace-only strings
+        if not model_lower:
+            return None
+        
+        # Remove common prefixes
+        for prefix in ['models/', 'openai/', 'anthropic/', 'google/', 'gpt-', 'github_copilot/']:
+            if model_lower.startswith(prefix):
+                model_lower = model_lower[len(prefix):]
+                break
+        
+        # Return None if nothing left after prefix removal
+        if not model_lower:
+            return None
+        
+        # Try exact match first
+        for known in known_models:
+            if model_lower == known.lower():
+                return known
+        
+        # Special handling for some common cases first (before generic partial matching)
+        # Handle claude-sonnet variants -> claude-3-5-sonnet (latest sonnet)
+        if 'claude' in model_lower and 'sonnet' in model_lower:
+            return 'claude-3-5-sonnet'
+        
+        # Handle claude-opus variants -> claude-3-opus
+        if 'claude' in model_lower and 'opus' in model_lower:
+            return 'claude-3-opus'
+        
+        # Handle claude-haiku variants -> claude-3-5-haiku
+        if 'claude' in model_lower and 'haiku' in model_lower:
+            return 'claude-3-5-haiku'
+
+        # Try partial matching
+        for known in known_models:
+            known_parts = known.lower().split('-')
+            model_parts = model_lower.split('-')
+            
+            # Check if all model parts are in known model
+            if all(part in known_parts for part in model_parts if part):
+                return known
+                
+            # Check if model contains key parts of known model
+            if len(known_parts) >= 2:
+                key_parts = known_parts[:2]  # e.g., ['gpt', '4'] from 'gpt-4'
+                if all(part in model_lower for part in key_parts):
+                    return known
+        
+        return None
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information configuration for AutoGen API.
+        
+        This method is used as a fallback when AutoGen doesn't recognize 
+        the model name and fuzzy matching fails.
         
         Returns:
             Dictionary with model capabilities and settings.
