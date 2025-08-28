@@ -115,11 +115,18 @@ Your role is strategic oversight, not technical execution."""
         # Primary path: Ask the LLM to perform the review with a structured prompt
         try:
             review_prompt = self._build_review_prompt(task_description, analysis_report, self.review_count)
-            from autogen_core import CancellationToken
-            cancellation_token = CancellationToken()
-            llm_response = self.agent.on_messages([
-                {"role": "user", "content": review_prompt}
-            ], cancellation_token)
+            
+            # Use agent.run() method directly like in the integration test
+            def run_review():
+                import asyncio
+                
+                async def async_review():
+                    result = await self.agent.run(task=review_prompt)
+                    return result
+                
+                return asyncio.run(async_review())
+            
+            llm_response = run_review()
             is_complete, feedback, confidence = self._parse_llm_review_response(llm_response)
 
             # If parsing succeeded, honor LLM decision
@@ -196,32 +203,43 @@ Examples:
 
         Supports plain JSON or fenced code blocks. Falls back to empty feedback on failure.
         """
-        # Handle AutoGen Response object
-        if hasattr(raw_response, 'chat_message'):
-            if hasattr(raw_response.chat_message, 'content'):
-                raw_response = raw_response.chat_message.content
-            elif hasattr(raw_response.chat_message, 'to_text'):
-                raw_response = raw_response.chat_message.to_text()
+        # Handle TaskResult object from agent.run()
+        response_text = raw_response
+        if hasattr(raw_response, 'messages') and len(raw_response.messages) > 0:
+            # Get the last message from TaskResult
+            last_message = raw_response.messages[-1]
+            if hasattr(last_message, 'content'):
+                response_text = last_message.content
             else:
-                raw_response = str(raw_response.chat_message)
-        
-        if not isinstance(raw_response, str):
-            raw_response = str(raw_response)
+                response_text = str(last_message)
+        elif hasattr(raw_response, 'chat_message'):
+            # Handle other AutoGen Response objects
+            if hasattr(raw_response.chat_message, 'content'):
+                response_text = raw_response.chat_message.content
+            elif hasattr(raw_response.chat_message, 'to_text'):
+                response_text = raw_response.chat_message.to_text()
+            else:
+                response_text = str(raw_response.chat_message)
+        elif not isinstance(raw_response, str):
+            response_text = str(raw_response)
+
+        if not isinstance(response_text, str):
+            response_text = str(response_text)
 
         # Try to extract JSON object from the response
         json_text = None
 
         # 1) Exact JSON on first line
-        first_line = raw_response.strip().splitlines()[0] if raw_response.strip() else ""
+        first_line = response_text.strip().splitlines()[0] if response_text.strip() else ""
         if first_line.startswith("{") and first_line.endswith("}"):
             json_text = first_line
         else:
             # 2) Look for fenced JSON ```json ... ``` or any {...}
-            fenced = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", raw_response, re.IGNORECASE)
+            fenced = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", response_text, re.IGNORECASE)
             if fenced:
                 json_text = fenced.group(1)
             else:
-                obj = re.search(r"(\{[\s\S]*\})", raw_response)
+                obj = re.search(r"(\{[\s\S]*\})", response_text)
                 if obj:
                     json_text = obj.group(1)
 
