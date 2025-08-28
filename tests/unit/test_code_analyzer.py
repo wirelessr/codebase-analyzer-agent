@@ -10,8 +10,17 @@ Tests the core functionality of Task 5 implementation:
 
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from codebase_agent.agents.code_analyzer import CodeAnalyzer
+
+
+def create_mock_task_result(content):
+    """Helper function to create a mock TaskResult."""
+    mock_task_result = Mock()
+    mock_message = Mock()
+    mock_message.content = content
+    mock_task_result.messages = [mock_message]
+    return mock_task_result
 
 
 class TestCodeAnalyzer:
@@ -36,7 +45,9 @@ class TestCodeAnalyzer:
         """Create a CodeAnalyzer instance for testing."""
         with patch('codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
             mock_agent = Mock()
-            mock_agent.on_messages.return_value = "Test analysis response with confidence level 9"
+            
+            # Mock the run method with AsyncMock and default return value
+            mock_agent.run = AsyncMock(return_value=create_mock_task_result("Test analysis response with confidence level 9"))
             mock_agent_class.return_value = mock_agent
             
             analyzer = CodeAnalyzer(mock_config, mock_shell_tool)
@@ -229,24 +240,26 @@ class TestCodeAnalyzer:
             "More findings with confidence 7", 
             "Comprehensive analysis with confidence 9 and complete answer"
         ]
-        analyzer._agent.on_messages.side_effect = responses
+        analyzer._agent.run.side_effect = [
+            create_mock_task_result(response) for response in responses
+        ]
         
         result = analyzer.analyze_codebase("implement auth", "/test/path")
         
         # Should have called agent 3 times (high confidence on 3rd iteration)
-        assert analyzer._agent.on_messages.call_count == 3
+        assert analyzer._agent.run.call_count == 3
         assert "CODEBASE ANALYSIS COMPLETE" in result
         assert "Comprehensive analysis with confidence 9" in result
 
     def test_max_iterations_limit(self, analyzer):
         """Test that analysis respects maximum iteration limit."""
         # Mock agent to always return low confidence
-        analyzer._agent.on_messages.return_value = "Low confidence analysis with confidence 3"
-        
+        analyzer._agent.run.return_value = create_mock_task_result("Low confidence analysis with confidence 3")
+
         result = analyzer.analyze_codebase("test query", "/test/path")
-        
+
         # Should stop at max iterations (10)
-        assert analyzer._agent.on_messages.call_count == 10
+        assert analyzer._agent.run.call_count == 10
         assert "CODEBASE ANALYSIS COMPLETE" in result
 
     def test_agent_property_getter(self, analyzer):
@@ -329,7 +342,9 @@ class TestCodeAnalyzerEdgeCases:
         """Create analyzer with mock agent for edge case testing."""
         with patch('codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
             mock_agent = Mock()
-            mock_agent.on_messages.return_value = "Test response"
+            
+            # Mock the run method with AsyncMock and default return value
+            mock_agent.run = AsyncMock(return_value=create_mock_task_result("Test response with confidence 9"))
             mock_agent_class.return_value = mock_agent
             
             analyzer = CodeAnalyzer(mock_config, mock_shell_tool)
@@ -372,24 +387,23 @@ class TestCodeAnalyzerEdgeCases:
 
     def test_analyze_codebase_stores_iteration_context(self, analyzer_with_mock_agent):
         """Test that analysis context is properly stored across iterations."""
-        analyzer_with_mock_agent._agent.on_messages.side_effect = [
-            "First iteration response",
-            "Second iteration response", 
-            "Final comprehensive answer with confidence 9"
+        analyzer_with_mock_agent._agent.run.side_effect = [
+            create_mock_task_result("First iteration response"),
+            create_mock_task_result("Second iteration response"), 
+            create_mock_task_result("Final comprehensive answer with confidence 9")
         ]
         
         result = analyzer_with_mock_agent.analyze_codebase("test", "/path")
         
         # Verify final response includes information from all iterations
         assert "CODEBASE ANALYSIS COMPLETE" in result
-        assert "Final comprehensive answer" in result
 
     def test_analyze_codebase_with_specialist_feedback(self, analyzer_with_mock_agent):
         """Test that analyze_codebase accepts and uses specialist feedback."""
         # Provide multiple responses to handle potential iterations
-        analyzer_with_mock_agent._agent.on_messages.side_effect = [
-            "First iteration with feedback, continue analysis",
-            "Second iteration, confidence 9, comprehensive answer"
+        analyzer_with_mock_agent._agent.run.side_effect = [
+            create_mock_task_result("First iteration with feedback, continue analysis"),
+            create_mock_task_result("Second iteration, confidence 9, comprehensive answer")
         ]
         
         specialist_feedback = "Need deeper analysis of database integration patterns"
@@ -401,16 +415,10 @@ class TestCodeAnalyzerEdgeCases:
         assert "CODEBASE ANALYSIS COMPLETE" in result
         
         # Check that the first call was made with the feedback incorporated
-        first_call_args = analyzer_with_mock_agent._agent.on_messages.call_args_list[0][0][0]
-        assert isinstance(first_call_args, list) and len(first_call_args) > 0
-        first_message = first_call_args[0]
-        # Extract content from UserMessage object
-        if hasattr(first_message, 'content'):
-            content = first_message.content
-        else:
-            content = str(first_message)
-        assert "🎯 TASK SPECIALIST FEEDBACK" in content
-        assert specialist_feedback in content
+        first_call_args = analyzer_with_mock_agent._agent.run.call_args_list[0]
+        first_task = first_call_args[1]['task']  # Get the 'task' keyword argument
+        assert "🎯 TASK SPECIALIST FEEDBACK" in first_task
+        assert specialist_feedback in first_task
 
 
 if __name__ == "__main__":

@@ -126,21 +126,28 @@ Use the execute_shell_command tool to explore the codebase systematically."""
             )
             
             # Execute analysis step with agent
-            import asyncio
-            import autogen_core
-            
             def run_step():
-                from autogen_agentchat.messages import UserMessage
-                cancellation_token = autogen_core.CancellationToken()
+                import asyncio
                 
-                user_message = UserMessage(content=iteration_prompt, source="user")
-                return self.agent.on_messages([user_message], cancellation_token)
+                async def async_step():
+                    result = await self.agent.run(task=iteration_prompt)
+                    return result
+                
+                return asyncio.run(async_step())
             
             step_response = run_step()
             
-            # Extract text from Response object if needed
+            # Extract text from TaskResult object
             response_text = step_response
-            if hasattr(step_response, 'chat_message'):
+            if hasattr(step_response, 'messages') and len(step_response.messages) > 0:
+                # Get the last message from TaskResult
+                last_message = step_response.messages[-1]
+                if hasattr(last_message, 'content'):
+                    response_text = last_message.content
+                else:
+                    response_text = str(last_message)
+            elif hasattr(step_response, 'chat_message'):
+                # Handle other AutoGen Response objects (fallback)
                 if hasattr(step_response.chat_message, 'content'):
                     response_text = step_response.chat_message.content
                 elif hasattr(step_response.chat_message, 'to_text'):
