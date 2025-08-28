@@ -8,7 +8,7 @@ are intentionally not tested as they were removed per design.
 
 import pytest
 from unittest.mock import Mock, patch
-from src.codebase_agent.agents.task_specialist import TaskSpecialist
+from codebase_agent.agents.task_specialist import TaskSpecialist
 
 
 class TestTaskSpecialist:

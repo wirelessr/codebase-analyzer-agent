@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.codebase_agent.utils.logging import (
+from codebase_agent.utils.logging import (
     LogEvent,
     LogParser,
     SessionLogs,

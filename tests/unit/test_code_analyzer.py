@@ -8,9 +8,10 @@ Tests the core functionality of Task 5 implementation:
 - AutoGen agent integration
 """
 
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from src.codebase_agent.agents.code_analyzer import CodeAnalyzer
+from codebase_agent.agents.code_analyzer import CodeAnalyzer
 
 
 class TestCodeAnalyzer:
@@ -26,15 +27,14 @@ class TestCodeAnalyzer:
     @pytest.fixture
     def mock_config(self):
         """Create a mock configuration for testing."""
-        return {
-            "model": "gpt-4",
-            "api_key": "test-key"
-        }
+        mock_client = Mock()
+        mock_client.model_info = {"function_calling": True}
+        return mock_client
     
     @pytest.fixture
     def analyzer(self, mock_config, mock_shell_tool):
         """Create a CodeAnalyzer instance for testing."""
-        with patch('src.codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
+        with patch('codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
             mock_agent = Mock()
             mock_agent.on_messages.return_value = "Test analysis response with confidence level 9"
             mock_agent_class.return_value = mock_agent
@@ -45,7 +45,7 @@ class TestCodeAnalyzer:
 
     def test_initialization(self, mock_config, mock_shell_tool):
         """Test proper initialization of CodeAnalyzer."""
-        with patch('src.codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
+        with patch('codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
             analyzer = CodeAnalyzer(mock_config, mock_shell_tool)
             
             assert analyzer.config == mock_config
@@ -327,7 +327,7 @@ class TestCodeAnalyzerEdgeCases:
     @pytest.fixture
     def analyzer_with_mock_agent(self, mock_config, mock_shell_tool):
         """Create analyzer with mock agent for edge case testing."""
-        with patch('src.codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
+        with patch('codebase_agent.agents.code_analyzer.AssistantAgent') as mock_agent_class:
             mock_agent = Mock()
             mock_agent.on_messages.return_value = "Test response"
             mock_agent_class.return_value = mock_agent
