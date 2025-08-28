@@ -186,6 +186,24 @@ class ConfigurationManager:
             "timeout": llm_config.timeout,
         }
     
+    def get_model_client(self):
+        """Get ChatCompletionClient for new AutoGen API.
+        
+        Returns:
+            OpenAIChatCompletionClient instance.
+        """
+        from autogen_ext.models.openai import OpenAIChatCompletionClient
+        
+        llm_config = self.get_llm_config()
+        
+        return OpenAIChatCompletionClient(
+            model=llm_config.model,
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            max_tokens=llm_config.max_tokens,
+            temperature=llm_config.temperature,
+        )
+    
     def get_agent_config(self) -> Dict[str, Any]:
         """Get agent-specific configuration settings.
         

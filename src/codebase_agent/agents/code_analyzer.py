@@ -39,18 +39,15 @@ class CodeAnalyzer:
         """Create and configure the AutoGen AssistantAgent with shell tool capability."""
         system_message = self._get_system_message()
         
+        # Create tool list with shell command execution
+        tools = [self.shell_tool.execute_command]
+        
         # Create the agent with shell tool access
         agent = AssistantAgent(
             name="code_analyzer",
             system_message=system_message,
             model_client=self.config,
-        )
-        
-        # Register shell tool with the agent
-        agent.register_tool(
-            name="execute_shell_command",
-            func=self.shell_tool.execute_command,
-            description="Execute read-only shell commands for codebase analysis. Returns (success, stdout, stderr)."
+            tools=tools
         )
         
         return agent
@@ -129,9 +126,17 @@ Use the execute_shell_command tool to explore the codebase systematically."""
             )
             
             # Execute analysis step with agent
-            step_response = self.agent.on_messages([
-                {"role": "user", "content": iteration_prompt}
-            ])
+            import asyncio
+            import autogen_core
+            
+            async def run_step():
+                from autogen_agentchat.messages import UserMessage
+                cancellation_token = autogen_core.CancellationToken()
+                
+                user_message = UserMessage(content=iteration_prompt, source="user")
+                return await self.agent.on_messages([user_message], cancellation_token)
+            
+            step_response = asyncio.run(run_step())
             
             # Store analysis step
             analysis_context.append({
