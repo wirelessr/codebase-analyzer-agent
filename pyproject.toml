@@ -21,13 +21,13 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "autogen-agentchat>=0.2.0",
+    "autogen-agentchat==0.7.4",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "openai>=1.0.0",
     "rich>=13.0.0",
-    "autogen-ext[openai]>=0.7.4",
+    "autogen-ext[openai]==0.7.4",
 ]
 
 [project.optional-dependencies]

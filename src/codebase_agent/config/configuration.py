@@ -2,6 +2,10 @@
 
 This module provides secure and flexible configuration management supporting multiple
 OpenAI-compatible API providers including OpenAI, OpenRouter, and LiteLLM.
+
+Note: This implementation relies on AutoGen 0.7.4's internal model definitions
+(_MODEL_TOKEN_LIMITS) for fuzzy model matching and token limit detection.
+The AutoGen version is pinned to ensure consistent behavior.
 """
 
 import os
@@ -204,13 +208,16 @@ class ConfigurationManager:
         
         llm_config = self.get_llm_config()
         
+        # Use AutoGen's built-in max_tokens if available, otherwise use config
+        max_tokens = self._get_autogen_max_tokens(llm_config.model) or llm_config.max_tokens
+        
         # First try to create client without model_info to use AutoGen's built-in detection
         try:
             return OpenAIChatCompletionClient(
                 model=llm_config.model,
                 api_key=llm_config.api_key,
                 base_url=llm_config.base_url,
-                max_tokens=llm_config.max_tokens,
+                max_tokens=max_tokens,
                 temperature=llm_config.temperature,
             )
         except Exception as e:
@@ -218,12 +225,14 @@ class ConfigurationManager:
             if "model_info is required" in str(e):
                 recognized_model = self._try_fuzzy_model_matching(llm_config.model)
                 if recognized_model:
+                    # Update max_tokens for the recognized model
+                    max_tokens = self._get_autogen_max_tokens(recognized_model) or llm_config.max_tokens
                     try:
                         return OpenAIChatCompletionClient(
                             model=recognized_model,
                             api_key=llm_config.api_key,
                             base_url=llm_config.base_url,
-                            max_tokens=llm_config.max_tokens,
+                            max_tokens=max_tokens,
                             temperature=llm_config.temperature,
                         )
                     except:
@@ -235,7 +244,7 @@ class ConfigurationManager:
                     model=llm_config.model,
                     api_key=llm_config.api_key,
                     base_url=llm_config.base_url,
-                    max_tokens=llm_config.max_tokens,
+                    max_tokens=max_tokens,
                     temperature=llm_config.temperature,
                     model_info=model_info,
                 )
@@ -252,14 +261,19 @@ class ConfigurationManager:
         Returns:
             Recognized model name or None if no match found.
         """
-        # Known models that AutoGen recognizes
-        known_models = [
-            'gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 
-            'gpt-3.5-turbo', 'gpt-3.5-turbo-16k',
-            'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
-            'claude-3-5-sonnet', 'claude-3-5-haiku',
-            'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'
-        ]
+        # Get all known models from AutoGen instead of hardcoding
+        try:
+            from autogen_ext.models.openai import _model_info
+            known_models = list(_model_info._MODEL_TOKEN_LIMITS.keys())
+        except Exception:
+            # Fallback to hardcoded list if AutoGen import fails
+            known_models = [
+                'gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 
+                'gpt-3.5-turbo', 'gpt-3.5-turbo-16k',
+                'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
+                'claude-3-5-sonnet', 'claude-3-5-haiku',
+                'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'
+            ]
         
         model_lower = model_name.lower().strip()
         
@@ -267,11 +281,16 @@ class ConfigurationManager:
         if not model_lower:
             return None
         
-        # Remove common prefixes
-        for prefix in ['models/', 'openai/', 'anthropic/', 'google/', 'gpt-', 'github_copilot/']:
-            if model_lower.startswith(prefix):
-                model_lower = model_lower[len(prefix):]
-                break
+        # Remove common prefixes (iterate until no more prefixes can be removed)
+        prefixes = ['models/', 'openai/', 'anthropic/', 'google/', 'gpt-', 'github_copilot/']
+        changed = True
+        while changed:
+            changed = False
+            for prefix in prefixes:
+                if model_lower.startswith(prefix):
+                    model_lower = model_lower[len(prefix):]
+                    changed = True
+                    break
         
         # Return None if nothing left after prefix removal
         if not model_lower:
@@ -282,20 +301,23 @@ class ConfigurationManager:
             if model_lower == known.lower():
                 return known
         
-        # Special handling for some common cases first (before generic partial matching)
-        # Handle claude-sonnet variants -> claude-3-5-sonnet (latest sonnet)
-        if 'claude' in model_lower and 'sonnet' in model_lower:
-            return 'claude-3-5-sonnet'
-        
-        # Handle claude-opus variants -> claude-3-opus
-        if 'claude' in model_lower and 'opus' in model_lower:
-            return 'claude-3-opus'
-        
-        # Handle claude-haiku variants -> claude-3-5-haiku
-        if 'claude' in model_lower and 'haiku' in model_lower:
-            return 'claude-3-5-haiku'
+        # Try partial matching with specific model names (e.g., claude-sonnet-4 -> claude-sonnet-4-20250514)
+        for known in known_models:
+            known_lower = known.lower()
+            
+            # Handle versioned models: exact model name with date suffix
+            # e.g., claude-sonnet-4 -> claude-sonnet-4-20250514
+            if known_lower.startswith(model_lower + '-') and model_lower.count('-') >= 2:
+                return known
+                
+            # Handle case where model_lower is a substring at word boundaries
+            # e.g., gpt-4 -> gpt-4-turbo-2024-04-09
+            if model_lower in known_lower.split('-'):
+                # Check if it's a meaningful match (not just single characters)
+                if len(model_lower.replace('-', '')) > 2:
+                    return known
 
-        # Try partial matching
+        # Try partial matching with model parts
         for known in known_models:
             known_parts = known.lower().split('-')
             model_parts = model_lower.split('-')
@@ -310,7 +332,43 @@ class ConfigurationManager:
                 if all(part in model_lower for part in key_parts):
                     return known
         
+        # Special handling for some common cases (as fallback only)
+        # Handle claude-opus variants -> claude-3-opus (find the actual opus model)
+        if 'claude' in model_lower and 'opus' in model_lower:
+            for known in known_models:
+                if 'opus' in known.lower():
+                    return known
+        
+        # Handle claude-sonnet variants -> claude-3-5-sonnet (only if no specific match found)
+        if 'claude' in model_lower and 'sonnet' in model_lower:
+            for known in known_models:
+                if 'sonnet' in known.lower():
+                    return known
+        
+        # Handle claude-haiku variants -> claude-3-5-haiku
+        if 'claude' in model_lower and 'haiku' in model_lower:
+            for known in known_models:
+                if 'haiku' in known.lower():
+                    return known
+        
         return None
+    
+    def _get_autogen_max_tokens(self, model_name: str) -> Optional[int]:
+        """Get max_tokens from AutoGen's built-in model information.
+        
+        Args:
+            model_name: The model name to look up.
+            
+        Returns:
+            max_tokens limit if found, None otherwise.
+        """
+        try:
+            from autogen_ext.models.openai import _model_info
+            return _model_info.get_token_limit(model_name)
+        except Exception:
+            # If AutoGen doesn't have the model or any error occurs,
+            # return None to fall back to manual configuration
+            return None
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information configuration for AutoGen API.

@@ -25,11 +25,11 @@ class TestConfigurationFuzzyMatching:
         """Test exact matching after prefix removal."""
         test_cases = [
             ("models/gemini-2.0-flash", "gemini-2.0-flash"),
-            ("openai/gpt-4", "gpt-4"),
-            ("anthropic/claude-3-opus", "claude-3-opus"),
-            ("anthropic/claude-3-sonnet", "claude-3-sonnet"),
+            ("openai/gpt-4", "gpt-4-turbo-2024-04-09"),
+            ("anthropic/claude-3-opus", "claude-3-opus-20240229"),
+            ("anthropic/claude-3-sonnet", "claude-3-sonnet-20240229"),
             ("google/gemini-1.5-pro", "gemini-1.5-pro"),
-            ("github_copilot/claude-sonnet-4", "claude-3-5-sonnet"),
+            ("github_copilot/claude-sonnet-4", "claude-sonnet-4-20250514"),
         ]
         
         for input_model, expected in test_cases:
@@ -39,20 +39,20 @@ class TestConfigurationFuzzyMatching:
     def test_claude_model_variants(self, config_manager):
         """Test various Claude model name variations, including GitHub Copilot format."""
         test_cases = [
-            # GitHub Copilot format
-            ("github_copilot/claude-sonnet-4", "claude-3-5-sonnet"),
-            ("github_copilot/claude-opus", "claude-3-opus"),
-            ("github_copilot/claude-haiku", "claude-3-5-haiku"),
+            # GitHub Copilot format - now maps to specific versioned models
+            ("github_copilot/claude-sonnet-4", "claude-sonnet-4-20250514"),
+            ("github_copilot/claude-opus", "claude-3-opus-20240229"),
+            ("github_copilot/claude-haiku", "claude-3-haiku-20240307"),
             
-            # Other variations
-            ("claude-sonnet-4", "claude-3-5-sonnet"),
-            ("claude-opus-2", "claude-3-opus"),
-            ("claude-haiku-3", "claude-3-5-haiku"),
+            # Specific versioned models should map to their AutoGen counterparts
+            ("claude-sonnet-4", "claude-sonnet-4-20250514"),
+            ("claude-opus-2", "claude-opus-4-20250514"),  # Maps to latest opus
+            ("claude-haiku-3", "claude-3-haiku-20240307"),
             
-            # With anthropic prefix
-            ("anthropic/claude-sonnet", "claude-3-5-sonnet"),
-            ("anthropic/claude-opus", "claude-3-opus"),
-            ("anthropic/claude-haiku", "claude-3-5-haiku"),
+            # Generic names map to specific versions
+            ("anthropic/claude-sonnet", "claude-3-sonnet-20240229"),
+            ("anthropic/claude-opus", "claude-3-opus-20240229"),
+            ("anthropic/claude-haiku", "claude-3-haiku-20240307"),
         ]
         
         for input_model, expected in test_cases:
@@ -62,9 +62,9 @@ class TestConfigurationFuzzyMatching:
     def test_case_insensitive_matching(self, config_manager):
         """Test case-insensitive model matching."""
         test_cases = [
-            ("GPT-4", "gpt-4"),
-            ("Gpt-4o", "gpt-4o"),
-            ("CLAUDE-3-OPUS", "claude-3-opus"),
+            ("GPT-4", "gpt-4-turbo-2024-04-09"),
+            ("Gpt-4o", "gpt-4o-2024-11-20"),
+            ("CLAUDE-3-OPUS", "claude-3-opus-20240229"),
             ("gemini-2.0-FLASH", "gemini-2.0-flash"),
         ]
         
@@ -75,9 +75,9 @@ class TestConfigurationFuzzyMatching:
     def test_partial_matching(self, config_manager):
         """Test partial matching for abbreviated model names."""
         test_cases = [
-            ("gpt4", "gpt-4"),
+            ("gpt4", "gpt-4-turbo-2024-04-09"),
             # Note: gpt35 doesn't match gpt-3.5-turbo due to the matching logic
-            ("claude3", "claude-3-opus"),  # Should match first available Claude 3 model
+            ("claude3", "claude-3-haiku-20240307"),  # Should match first available Claude 3 model
         ]
         
         for input_model, expected in test_cases:
@@ -110,10 +110,10 @@ class TestConfigurationFuzzyMatching:
     def test_gpt_prefix_removal(self, config_manager):
         """Test special handling of gpt- prefix removal."""
         test_cases = [
-            ("gpt-gpt-4", "gpt-4"),  # Double prefix should be handled
-            ("gpt-4o-mini", "gpt-4o-mini"),
+            ("gpt-gpt-4", "gpt-4-turbo-2024-04-09"),  # Double prefix should be handled
+            ("gpt-4o-mini", "gpt-4o-mini-2024-07-18"),
             # gpt-turbo actually matches gpt-4-turbo better than gpt-3.5-turbo
-            ("gpt-turbo", "gpt-4-turbo"),
+            ("gpt-turbo", "gpt-4-turbo-2024-04-09"),
         ]
         
         for input_model, expected in test_cases:
@@ -123,8 +123,8 @@ class TestConfigurationFuzzyMatching:
     def test_key_parts_matching(self, config_manager):
         """Test matching based on key parts of model names."""
         test_cases = [
-            ("some-gpt-4-variant", "gpt-4"),
-            ("custom-claude-3-model", "claude-3-opus"),
+            ("some-gpt-4-variant", "gpt-4-turbo-2024-04-09"),
+            ("custom-claude-3-model", "claude-3-haiku-20240307"),
             ("modified-gemini-2.0", "gemini-2.0-flash"),
         ]
         
@@ -135,8 +135,8 @@ class TestConfigurationFuzzyMatching:
     def test_complex_prefix_combinations(self, config_manager):
         """Test combinations of different prefixes."""
         test_cases = [
-            ("openai/models/gpt-4", "gpt-4"),
-            ("anthropic/models/claude-3-opus", "claude-3-opus"),
+            ("openai/models/gpt-4", "gpt-4-turbo-2024-04-09"),
+            ("anthropic/models/claude-3-opus", "claude-3-opus-20240229"),
             ("google/models/gemini-2.0-flash", "gemini-2.0-flash"),
         ]
         
@@ -148,8 +148,8 @@ class TestConfigurationFuzzyMatching:
         """Test handling of version numbers in model names."""
         # These test cases reflect actual matching behavior
         test_cases = [
-            ("claude-3.5", "claude-3-opus"),     # Matches to first claude-3 variant
-            ("gemini-1.5", "gemini-1.5-pro"),   # Exact match available
+            ("claude-3.5", "claude-3-haiku-20240307"),     # Matches to first claude-3 variant
+            ("gemini-1.5", "gemini-1.5-flash"),   # Matches first available gemini-1.5 model
         ]
         
         for input_model, expected in test_cases:
@@ -237,10 +237,10 @@ class TestConfigurationGetModelClient:
     def test_fuzzy_matched_models_generate_valid_model_info(self, config_manager):
         """Test that fuzzy-matched models can actually generate valid model_info with AutoGen."""
         test_cases = [
-            ("models/gpt-4", "gpt-4"),
-            ("openai/gpt-4o", "gpt-4o"),
+            ("models/gpt-4", "gpt-4-turbo-2024-04-09"),
+            ("openai/gpt-4o", "gpt-4o-2024-11-20"),
             ("models/gemini-2.0-flash", "gemini-2.0-flash"),
-            ("anthropic/claude-3-opus", "claude-3-opus"),
+            ("anthropic/claude-3-opus", "claude-3-opus-20240229"),
         ]
         
         for input_model, expected_match in test_cases:
@@ -293,6 +293,48 @@ class TestConfigurationGetModelClient:
         assert "function_calling" in manual_info
         
         print(f"📋 Manual fallback model_info: {manual_info}")
+
+    def test_autogen_max_tokens_integration(self, config_manager):
+        """Test AutoGen max_tokens integration."""
+        test_cases = [
+            # Model, expected to have AutoGen max_tokens
+            ("gpt-4", True),
+            ("gpt-4o", True),
+            ("claude-3-5-sonnet", True),
+            ("gemini-2.0-flash", True),
+            ("unknown-model", False),
+        ]
+        
+        for model, should_have_autogen_tokens in test_cases:
+            autogen_tokens = config_manager._get_autogen_max_tokens(model)
+            
+            if should_have_autogen_tokens:
+                assert autogen_tokens is not None, f"Expected AutoGen max_tokens for {model}"
+                assert autogen_tokens > 0, f"Expected positive max_tokens for {model}, got {autogen_tokens}"
+                print(f"✅ {model}: {autogen_tokens:,} tokens")
+            else:
+                assert autogen_tokens is None, f"Expected None for {model}, got {autogen_tokens}"
+                print(f"❌ {model}: No AutoGen max_tokens (expected)")
+
+    def test_fuzzy_matching_with_autogen_max_tokens(self, config_manager):
+        """Test that fuzzy matched models get correct AutoGen max_tokens."""
+        test_cases = [
+            ("github_copilot/claude-sonnet-4", "claude-sonnet-4-20250514"),
+            ("gpt4", "gpt-4-turbo-2024-04-09"),
+            ("claude-opus-2", "claude-opus-4-20250514"),
+        ]
+        
+        for input_model, expected_match in test_cases:
+            # Test fuzzy matching
+            matched_model = config_manager._try_fuzzy_model_matching(input_model)
+            assert matched_model == expected_match, f"Expected {expected_match}, got {matched_model}"
+            
+            # Test AutoGen max_tokens for matched model
+            autogen_tokens = config_manager._get_autogen_max_tokens(matched_model)
+            assert autogen_tokens is not None, f"Expected AutoGen max_tokens for matched model {matched_model}"
+            assert autogen_tokens > 0, f"Expected positive max_tokens for {matched_model}"
+            
+            print(f"✅ {input_model} -> {matched_model}: {autogen_tokens:,} tokens")
 
 
 if __name__ == "__main__":
