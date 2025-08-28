@@ -56,24 +56,8 @@ class TestCodeAnalyzerIntegration:
             config_manager = ConfigurationManager()
             config_manager.load_environment()
             
-            from autogen_ext.models.openai import OpenAIChatCompletionClient
-            
-            api_key = config_manager.get_config_value("OPENAI_API_KEY")
-            base_url = config_manager.get_config_value("OPENAI_BASE_URL") 
-            model = config_manager.get_config_value("OPENAI_MODEL")
-            
-            if not all([api_key, base_url, model]):
-                pytest.skip("Missing LLM configuration")
-            
-            return OpenAIChatCompletionClient(
-                model=model, api_key=api_key, base_url=base_url,
-                max_tokens=1000, temperature=0.1,
-                model_info={
-                    "family": "openai", "vision": False, 
-                    "function_calling": True, "json_output": True,
-                    "structured_output": False
-                }
-            )
+            # Use the configuration manager to get model client
+            return config_manager.get_model_client()
         except Exception as e:
             pytest.skip(f"Could not configure LLM: {e}")
     

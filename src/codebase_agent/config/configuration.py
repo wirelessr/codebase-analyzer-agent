@@ -57,6 +57,11 @@ class ConfigurationManager:
         "LOG_LEVEL": "INFO",
         "DEBUG": "false",
         "ALLOWED_WORKING_DIRECTORY": "",
+        "MODEL_FAMILY": "openai",
+        "MODEL_VISION": "false",
+        "MODEL_FUNCTION_CALLING": "true",
+        "MODEL_JSON_OUTPUT": "true",
+        "MODEL_STRUCTURED_OUTPUT": "false",
     }
     
     # Default values for common API providers
@@ -195,6 +200,7 @@ class ConfigurationManager:
         from autogen_ext.models.openai import OpenAIChatCompletionClient
         
         llm_config = self.get_llm_config()
+        model_info = self.get_model_info()
         
         return OpenAIChatCompletionClient(
             model=llm_config.model,
@@ -202,7 +208,25 @@ class ConfigurationManager:
             base_url=llm_config.base_url,
             max_tokens=llm_config.max_tokens,
             temperature=llm_config.temperature,
+            model_info=model_info,
         )
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get model information configuration for AutoGen API.
+        
+        Returns:
+            Dictionary with model capabilities and settings.
+        """
+        if not self._is_loaded:
+            self.load_environment()
+            
+        return {
+            "family": self._config.get("MODEL_FAMILY", "openai"),
+            "vision": self._config.get("MODEL_VISION", "false").lower() == "true",
+            "function_calling": self._config.get("MODEL_FUNCTION_CALLING", "true").lower() == "true",
+            "json_output": self._config.get("MODEL_JSON_OUTPUT", "true").lower() == "true",
+            "structured_output": self._config.get("MODEL_STRUCTURED_OUTPUT", "false").lower() == "true",
+        }
     
     def get_agent_config(self) -> Dict[str, Any]:
         """Get agent-specific configuration settings.
@@ -304,16 +328,26 @@ class ConfigurationManager:
             "   OPENAI_API_KEY=sk-your_openai_key",
             "   OPENAI_BASE_URL=https://api.openai.com/v1",
             "   OPENAI_MODEL=gpt-4",
+            "   MODEL_FAMILY=openai",
+            "   MODEL_FUNCTION_CALLING=true",
             "",
             "OpenRouter:",
             "   OPENAI_API_KEY=sk-or-your_openrouter_key", 
             "   OPENAI_BASE_URL=https://openrouter.ai/api/v1",
             "   OPENAI_MODEL=openai/gpt-4",
+            "   MODEL_FAMILY=openai",
             "",
             "LiteLLM Proxy:",
             "   OPENAI_API_KEY=your_api_key",
             "   OPENAI_BASE_URL=http://localhost:4000",
             "   OPENAI_MODEL=gpt-4",
+            "   MODEL_FAMILY=openai",
+            "",
+            "Optional model capabilities (defaults shown):",
+            "   MODEL_VISION=false",
+            "   MODEL_FUNCTION_CALLING=true", 
+            "   MODEL_JSON_OUTPUT=true",
+            "   MODEL_STRUCTURED_OUTPUT=false",
         ])
         
         return "\n".join(instructions)
@@ -327,7 +361,7 @@ class ConfigurationManager:
         Returns:
             True if format appears valid.
         """
-        if not api_key or len(api_key) < 10:
+        if not api_key:
             return False
             
         # Common API key prefixes
