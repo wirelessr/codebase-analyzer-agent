@@ -121,7 +121,7 @@ Your role is strategic oversight, not technical execution."""
                 import asyncio
                 
                 async def async_review():
-                    result = await self.agent.run(task=review_prompt)
+                    result = await self._agent.run(task=review_prompt)
                     return result
                 
                 return asyncio.run(async_review())

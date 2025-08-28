@@ -85,6 +85,7 @@ class ConfigurationManager:
         self.env_file = self.project_root / ".env"
         self._config: Dict[str, str] = {}
         self._is_loaded = False
+        self.logger = logging.getLogger(__name__)
         
     def load_environment(self) -> None:
         """Load environment variables from .env file and system environment.
@@ -198,8 +199,8 @@ class ConfigurationManager:
     def get_model_client(self):
         """Get ChatCompletionClient for new AutoGen API.
         
-        Uses AutoGen's built-in model info for known models when possible,
-        falls back to manual configuration for unknown models.
+        Always uses the original model name for API authentication, but intelligently
+        matches model_info from AutoGen's built-in model definitions when possible.
         
         Returns:
             OpenAIChatCompletionClient instance.
@@ -221,27 +222,34 @@ class ConfigurationManager:
                 temperature=llm_config.temperature,
             )
         except Exception as e:
-            # If AutoGen doesn't recognize the model, try fuzzy matching
+            # If AutoGen doesn't recognize the model, try to find matching model_info
             if "model_info is required" in str(e):
-                recognized_model = self._try_fuzzy_model_matching(llm_config.model)
-                if recognized_model:
-                    # Update max_tokens for the recognized model
-                    max_tokens = self._get_autogen_max_tokens(recognized_model) or llm_config.max_tokens
-                    try:
+                self.logger.info(f"Model '{llm_config.model}' not in AutoGen's built-in list. Finding compatible model_info...")
+                
+                # Find a compatible AutoGen model to copy its model_info
+                compatible_model = self._find_compatible_autogen_model(llm_config.model)
+                if compatible_model:
+                    # Get the model_info from the compatible AutoGen model
+                    model_info = self._get_model_info_from_autogen_model(compatible_model)
+                    if model_info:
+                        self.logger.info(f"✅ Using model_info from AutoGen model '{compatible_model}' for '{llm_config.model}'")
+                        self.logger.debug(f"Model info: {model_info}")
+                        
                         return OpenAIChatCompletionClient(
-                            model=recognized_model,
+                            model=llm_config.model,  # Keep original model name for API auth
                             api_key=llm_config.api_key,
                             base_url=llm_config.base_url,
                             max_tokens=max_tokens,
                             temperature=llm_config.temperature,
+                            model_info=model_info,  # Use compatible model_info
                         )
-                    except:
-                        pass  # Fall back to manual model_info
                 
-                # Fall back to manual model_info
-                model_info = self.get_model_info()
+                # If no compatible model found, use intelligent defaults
+                self.logger.warning(f"No compatible AutoGen model found for '{llm_config.model}'. Using intelligent defaults.")
+                model_info = self._generate_model_info_from_name(llm_config.model)
+                
                 return OpenAIChatCompletionClient(
-                    model=llm_config.model,
+                    model=llm_config.model,  # Keep original model name
                     api_key=llm_config.api_key,
                     base_url=llm_config.base_url,
                     max_tokens=max_tokens,
@@ -252,105 +260,212 @@ class ConfigurationManager:
                 # Re-raise other errors
                 raise
     
+    def _find_compatible_autogen_model(self, model_name: str) -> Optional[str]:
+        """Find a compatible AutoGen model to copy model_info from.
+        
+        This method finds an AutoGen model that has similar characteristics to
+        the user's model, so we can copy its model_info while keeping the original
+        model name for API authentication.
+        
+        Args:
+            model_name: The user's model name
+            
+        Returns:
+            Compatible AutoGen model name or None
+        """
+        if not model_name or not model_name.strip():
+            return None
+            
+        # Get all known AutoGen models
+        try:
+            from autogen_ext.models.openai import _model_info
+            autogen_models = list(_model_info._MODEL_TOKEN_LIMITS.keys())
+        except Exception:
+            self.logger.warning("Could not access AutoGen model database")
+            return None
+        
+        model_lower = model_name.lower().strip()
+        
+        # Remove common prefixes to get the core model name
+        prefixes_to_remove = [
+            'models/', 'openai/', 'anthropic/', 'google/', 'meta/', 'github_copilot/',
+            'azure/', 'huggingface/', 'together/', 'replicate/', 'anyscale/'
+        ]
+        
+        cleaned_model = model_lower
+        for prefix in prefixes_to_remove:
+            if cleaned_model.startswith(prefix):
+                cleaned_model = cleaned_model[len(prefix):]
+                break
+        
+        # Strategy 1: Find models from the same family
+        compatible_models = []
+        
+        # Claude family
+        if any(keyword in cleaned_model for keyword in ['claude']):
+            claude_models = [m for m in autogen_models if 'claude' in m.lower()]
+            if claude_models:
+                # Prefer newer Claude versions for better capabilities
+                if 'sonnet-4' in cleaned_model or 'claude-4' in cleaned_model:
+                    # Look for Claude 4 models first
+                    claude_4_models = [m for m in claude_models if 'sonnet-4' in m or 'opus-4' in m]
+                    if claude_4_models:
+                        compatible_models.extend(claude_4_models[:1])  # Take the first Claude 4 model
+                    else:
+                        # Fallback to latest Claude 3.5
+                        claude_35_models = [m for m in claude_models if '3-5' in m]
+                        if claude_35_models:
+                            compatible_models.extend(claude_35_models[:1])
+                elif '3.5' in cleaned_model or '3-5' in cleaned_model:
+                    claude_35_models = [m for m in claude_models if '3-5' in m]
+                    if claude_35_models:
+                        compatible_models.extend(claude_35_models[:1])
+                elif '3' in cleaned_model:
+                    claude_3_models = [m for m in claude_models if '3-' in m and '3-5' not in m]
+                    if claude_3_models:
+                        compatible_models.extend(claude_3_models[:1])
+                else:
+                    # Generic Claude - use latest available
+                    compatible_models.extend(claude_models[:1])
+        
+        # GPT family
+        elif any(keyword in cleaned_model for keyword in ['gpt', 'openai']):
+            gpt_models = [m for m in autogen_models if 'gpt' in m.lower()]
+            if gpt_models:
+                if 'gpt-5' in cleaned_model:
+                    gpt_5_models = [m for m in gpt_models if 'gpt-5' in m]
+                    compatible_models.extend(gpt_5_models[:1])
+                elif 'gpt-4' in cleaned_model:
+                    gpt_4_models = [m for m in gpt_models if 'gpt-4' in m]
+                    # Prefer GPT-4o or turbo variants
+                    gpt_4o_models = [m for m in gpt_4_models if 'o' in m]
+                    if gpt_4o_models:
+                        compatible_models.extend(gpt_4o_models[:1])
+                    else:
+                        compatible_models.extend(gpt_4_models[:1])
+                elif 'gpt-3.5' in cleaned_model:
+                    gpt_35_models = [m for m in gpt_models if 'gpt-3.5' in m]
+                    compatible_models.extend(gpt_35_models[:1])
+                else:
+                    # Generic GPT - use latest GPT-4
+                    gpt_4_models = [m for m in gpt_models if 'gpt-4' in m]
+                    compatible_models.extend(gpt_4_models[:1])
+        
+        # Gemini family
+        elif any(keyword in cleaned_model for keyword in ['gemini', 'google']):
+            gemini_models = [m for m in autogen_models if 'gemini' in m.lower()]
+            if gemini_models:
+                if '2.0' in cleaned_model:
+                    gemini_2_models = [m for m in gemini_models if '2.0' in m]
+                    compatible_models.extend(gemini_2_models[:1])
+                elif '1.5' in cleaned_model:
+                    gemini_15_models = [m for m in gemini_models if '1.5' in m]
+                    compatible_models.extend(gemini_15_models[:1])
+                else:
+                    compatible_models.extend(gemini_models[:1])
+        
+        # Llama family
+        elif any(keyword in cleaned_model for keyword in ['llama', 'meta']):
+            llama_models = [m for m in autogen_models if 'llama' in m.lower()]
+            if llama_models:
+                compatible_models.extend(llama_models[:1])
+        
+        # Strategy 2: If no family match, use a reasonable default
+        if not compatible_models:
+            # Default to a popular, well-supported model
+            default_options = [
+                'gpt-4o-2024-11-20', 'claude-3-5-sonnet-20241022', 
+                'gpt-4-turbo-2024-04-09', 'gemini-2.0-flash'
+            ]
+            for default_model in default_options:
+                if default_model in autogen_models:
+                    compatible_models.append(default_model)
+                    break
+        
+        return compatible_models[0] if compatible_models else None
+    
+    def _get_model_info_from_autogen_model(self, autogen_model: str) -> Optional[Dict[str, Any]]:
+        """Get model_info from an AutoGen model by creating a temporary client.
+        
+        Args:
+            autogen_model: The AutoGen model name to get info from
+            
+        Returns:
+            Model info dictionary or None if failed
+        """
+        try:
+            from autogen_ext.models.openai import OpenAIChatCompletionClient
+            
+            # Create a temporary client to extract model_info
+            temp_client = OpenAIChatCompletionClient(
+                model=autogen_model,
+                api_key="dummy",  # We won't make actual API calls
+                base_url="http://dummy",
+            )
+            
+            # Extract model_info from the client
+            if hasattr(temp_client, 'model_info'):
+                return dict(temp_client.model_info)
+            else:
+                return None
+                
+        except Exception as e:
+            self.logger.debug(f"Could not extract model_info from '{autogen_model}': {e}")
+            return None
+    
+    def _generate_model_info_from_name(self, model_name: str) -> Dict[str, Any]:
+        """Generate reasonable model_info based on model name patterns.
+        
+        This is a fallback when no compatible AutoGen model is found.
+        
+        Args:
+            model_name: The model name to analyze
+            
+        Returns:
+            Dictionary with inferred model capabilities
+        """
+        model_lower = model_name.lower()
+        
+        # Conservative defaults
+        model_info = {
+            "family": "openai",
+            "vision": False,
+            "function_calling": True,
+            "json_output": True,
+            "structured_output": False,
+        }
+        
+        # Adjust based on model name patterns
+        if 'claude' in model_lower:
+            model_info.update({
+                "family": "claude",
+                "vision": any(v in model_lower for v in ['4', '3.5', '3-5']),  # Claude 3.5+ has vision
+                "function_calling": True,
+                "structured_output": any(v in model_lower for v in ['4', '3.5', '3-5']),
+            })
+        elif 'gpt' in model_lower:
+            model_info.update({
+                "family": "gpt-4" if "gpt-4" in model_lower else "openai",
+                "vision": "gpt-4" in model_lower or "gpt-5" in model_lower,
+                "structured_output": any(v in model_lower for v in ['gpt-4', 'gpt-5']),
+            })
+        elif 'gemini' in model_lower:
+            model_info.update({
+                "family": "gemini",
+                "vision": any(v in model_lower for v in ['1.5', '2.0']),
+                "structured_output": '2.0' in model_lower,
+            })
+        
+        return model_info
     def _try_fuzzy_model_matching(self, model_name: str) -> Optional[str]:
-        """Try to match unknown model names to known AutoGen models.
+        """Legacy method - now returns None since we don't change model names.
         
         Args:
             model_name: The model name to match.
             
         Returns:
-            Recognized model name or None if no match found.
+            None (we no longer change model names)
         """
-        # Get all known models from AutoGen instead of hardcoding
-        try:
-            from autogen_ext.models.openai import _model_info
-            known_models = list(_model_info._MODEL_TOKEN_LIMITS.keys())
-        except Exception:
-            # Fallback to hardcoded list if AutoGen import fails
-            known_models = [
-                'gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 
-                'gpt-3.5-turbo', 'gpt-3.5-turbo-16k',
-                'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
-                'claude-3-5-sonnet', 'claude-3-5-haiku',
-                'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'
-            ]
-        
-        model_lower = model_name.lower().strip()
-        
-        # Return None for empty or whitespace-only strings
-        if not model_lower:
-            return None
-        
-        # Remove common prefixes (iterate until no more prefixes can be removed)
-        prefixes = ['models/', 'openai/', 'anthropic/', 'google/', 'gpt-', 'github_copilot/']
-        changed = True
-        while changed:
-            changed = False
-            for prefix in prefixes:
-                if model_lower.startswith(prefix):
-                    model_lower = model_lower[len(prefix):]
-                    changed = True
-                    break
-        
-        # Return None if nothing left after prefix removal
-        if not model_lower:
-            return None
-        
-        # Try exact match first
-        for known in known_models:
-            if model_lower == known.lower():
-                return known
-        
-        # Try partial matching with specific model names (e.g., claude-sonnet-4 -> claude-sonnet-4-20250514)
-        for known in known_models:
-            known_lower = known.lower()
-            
-            # Handle versioned models: exact model name with date suffix
-            # e.g., claude-sonnet-4 -> claude-sonnet-4-20250514
-            if known_lower.startswith(model_lower + '-') and model_lower.count('-') >= 2:
-                return known
-                
-            # Handle case where model_lower is a substring at word boundaries
-            # e.g., gpt-4 -> gpt-4-turbo-2024-04-09
-            if model_lower in known_lower.split('-'):
-                # Check if it's a meaningful match (not just single characters)
-                if len(model_lower.replace('-', '')) > 2:
-                    return known
-
-        # Try partial matching with model parts
-        for known in known_models:
-            known_parts = known.lower().split('-')
-            model_parts = model_lower.split('-')
-            
-            # Check if all model parts are in known model
-            if all(part in known_parts for part in model_parts if part):
-                return known
-                
-            # Check if model contains key parts of known model
-            if len(known_parts) >= 2:
-                key_parts = known_parts[:2]  # e.g., ['gpt', '4'] from 'gpt-4'
-                if all(part in model_lower for part in key_parts):
-                    return known
-        
-        # Special handling for some common cases (as fallback only)
-        # Handle claude-opus variants -> claude-3-opus (find the actual opus model)
-        if 'claude' in model_lower and 'opus' in model_lower:
-            for known in known_models:
-                if 'opus' in known.lower():
-                    return known
-        
-        # Handle claude-sonnet variants -> claude-3-5-sonnet (only if no specific match found)
-        if 'claude' in model_lower and 'sonnet' in model_lower:
-            for known in known_models:
-                if 'sonnet' in known.lower():
-                    return known
-        
-        # Handle claude-haiku variants -> claude-3-5-haiku
-        if 'claude' in model_lower and 'haiku' in model_lower:
-            for known in known_models:
-                if 'haiku' in known.lower():
-                    return known
-        
         return None
     
     def _get_autogen_max_tokens(self, model_name: str) -> Optional[int]:
@@ -373,22 +488,36 @@ class ConfigurationManager:
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information configuration for AutoGen API.
         
-        This method is used as a fallback when AutoGen doesn't recognize 
-        the model name and fuzzy matching fails.
+        This method now tries to use compatible AutoGen model_info when possible,
+        falling back to name-based inference as a last resort.
         
         Returns:
             Dictionary with model capabilities and settings.
         """
         if not self._is_loaded:
             self.load_environment()
-            
-        return {
-            "family": self._config.get("MODEL_FAMILY", "openai"),
-            "vision": self._config.get("MODEL_VISION", "false").lower() == "true",
-            "function_calling": self._config.get("MODEL_FUNCTION_CALLING", "true").lower() == "true",
-            "json_output": self._config.get("MODEL_JSON_OUTPUT", "true").lower() == "true",
-            "structured_output": self._config.get("MODEL_STRUCTURED_OUTPUT", "false").lower() == "true",
-        }
+        
+        model_name = self._config.get("OPENAI_MODEL", "")
+        if not model_name:
+            return {
+                "family": "openai",
+                "vision": False,
+                "function_calling": True,
+                "json_output": True,
+                "structured_output": False,
+            }
+        
+        # Try to find a compatible AutoGen model and use its model_info
+        compatible_model = self._find_compatible_autogen_model(model_name)
+        if compatible_model:
+            model_info = self._get_model_info_from_autogen_model(compatible_model)
+            if model_info:
+                self.logger.info(f"Using model_info from compatible AutoGen model '{compatible_model}' for '{model_name}'")
+                return model_info
+        
+        # Fallback to name-based inference
+        self.logger.info(f"Using name-based model_info inference for '{model_name}'")
+        return self._generate_model_info_from_name(model_name)
     
     def get_agent_config(self) -> Dict[str, Any]:
         """Get agent-specific configuration settings.
@@ -486,30 +615,32 @@ class ConfigurationManager:
             "",
             "Common API provider examples:",
             "",
-            "OpenAI:",
+            "OpenAI (recommended models):",
             "   OPENAI_API_KEY=sk-your_openai_key",
             "   OPENAI_BASE_URL=https://api.openai.com/v1",
-            "   OPENAI_MODEL=gpt-4",
-            "   MODEL_FAMILY=openai",
-            "   MODEL_FUNCTION_CALLING=true",
+            "   OPENAI_MODEL=gpt-4o-2024-11-20",
             "",
-            "OpenRouter:",
+            "OpenRouter (use exact AutoGen model names):",
             "   OPENAI_API_KEY=sk-or-your_openrouter_key", 
             "   OPENAI_BASE_URL=https://openrouter.ai/api/v1",
-            "   OPENAI_MODEL=openai/gpt-4",
-            "   MODEL_FAMILY=openai",
+            "   OPENAI_MODEL=gpt-4o-2024-11-20",
             "",
-            "LiteLLM Proxy:",
-            "   OPENAI_API_KEY=your_api_key",
-            "   OPENAI_BASE_URL=http://localhost:4000",
-            "   OPENAI_MODEL=gpt-4",
-            "   MODEL_FAMILY=openai",
+            "Anthropic via OpenRouter:",
+            "   OPENAI_API_KEY=sk-or-your_openrouter_key",
+            "   OPENAI_BASE_URL=https://openrouter.ai/api/v1",
+            "   OPENAI_MODEL=claude-3-5-sonnet-20241022",
             "",
-            "Optional model capabilities (defaults shown):",
-            "   MODEL_VISION=false",
-            "   MODEL_FUNCTION_CALLING=true", 
-            "   MODEL_JSON_OUTPUT=true",
-            "   MODEL_STRUCTURED_OUTPUT=false",
+            "GitHub Copilot (via LiteLLM):",
+            "   OPENAI_API_KEY=your_github_token",
+            "   OPENAI_BASE_URL=http://localhost:4000/v1",
+            "   OPENAI_MODEL=github_copilot/claude-sonnet-4",
+            "",
+            "🎯 IMPORTANT: Use AutoGen's supported model names for best results!",
+            "   The system will try to match your model name to AutoGen's built-in models.",
+            "   Supported models include: gpt-4o-*, claude-*-*, gemini-*-*, o1-*, etc.",
+            "",
+            "❌ Manual model configuration is no longer needed:",
+            "   MODEL_FAMILY, MODEL_VISION, etc. are automatically determined from model names.",
         ])
         
         return "\n".join(instructions)

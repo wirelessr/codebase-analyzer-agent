@@ -39,8 +39,27 @@ class CodeAnalyzer:
         """Create and configure the AutoGen AssistantAgent with shell tool capability."""
         system_message = self._get_system_message()
         
-        # Create tool list with shell command execution
-        tools = [self.shell_tool.execute_command]
+        # Create a wrapper function for shell tool that returns string
+        def execute_shell_command(command: str) -> str:
+            """Execute a shell command and return the result as a string.
+            
+            Args:
+                command: The shell command to execute
+                
+            Returns:
+                Command output or error message as a string
+            """
+            try:
+                success, stdout, stderr = self.shell_tool.execute_command(command)
+                if success:
+                    return stdout or "Command executed successfully"
+                else:
+                    return f"Command failed: {stderr}" if stderr else "Command failed with no error message"
+            except Exception as e:
+                return f"Error executing command: {str(e)}"
+        
+        # Create tool list with wrapped shell command execution
+        tools = [execute_shell_command]
         
         # Create the agent with shell tool access
         agent = AssistantAgent(

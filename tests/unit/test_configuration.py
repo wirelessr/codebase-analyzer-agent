@@ -352,9 +352,9 @@ REQUEST_TIMEOUT=60
             assert "❌ Configuration setup required:" in instructions
             assert "Create .env file:" in instructions
             assert "OPENAI_API_KEY" in instructions
-            assert "OpenAI:" in instructions
-            assert "OpenRouter:" in instructions
-            assert "LiteLLM Proxy:" in instructions
+            assert "OpenAI (recommended models):" in instructions
+            assert "OpenRouter (use exact AutoGen model names):" in instructions
+            assert "GitHub Copilot (via LiteLLM):" in instructions
     
     def test_get_setup_instructions_existing_env_file(self, temp_project_root):
         """Test setup instructions when .env file exists."""
