@@ -37,6 +37,9 @@ jobs:
     - name: Build package
       run: uv build
 
+    - name: Install twine for package validation
+      run: uv add --dev twine
+
     - name: Check distribution
       run: |
         uv run twine check dist/*
