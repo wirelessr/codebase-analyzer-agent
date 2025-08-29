@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Show INFO level logs in console (equivalent to --console-level INFO)",
 )
-def cli(log_level: str, console_level: str, logs_dir: str, verbose: bool):
+def cli(log_level: str, console_level: str, logs_dir: str, verbose: bool) -> None:
     """AutoGen Codebase Understanding Agent CLI.
 
     An intelligent agent system that analyzes codebases using multi-agent
@@ -89,7 +89,7 @@ def analyze(
     task_description: str,
     output_format: str,
     working_dir: str | None,
-):
+) -> None:
     """Analyze codebase for specific development task.
 
     CODEBASE_PATH: Path to the codebase directory to analyze
@@ -100,15 +100,17 @@ def analyze(
         codebase-agent analyze /path/to/project "add payment processing module"
     """
     start_time = time.time()
-    codebase_path = Path(codebase_path).resolve()
+    codebase_path_obj = Path(codebase_path).resolve()
 
     # Use working directory or default to codebase path
-    working_directory = Path(working_dir).resolve() if working_dir else codebase_path
+    working_directory = (
+        Path(working_dir).resolve() if working_dir else codebase_path_obj
+    )
 
     console.print(
         Panel.fit(
             f"[bold blue]AutoGen Codebase Analysis[/bold blue]\n"
-            f"[cyan]Codebase:[/cyan] {codebase_path}\n"
+            f"[cyan]Codebase:[/cyan] {codebase_path_obj}\n"
             f"[cyan]Task:[/cyan] {task_description}\n"
             f"[cyan]Working Directory:[/cyan] {working_directory}",
             border_style="blue",
@@ -118,7 +120,7 @@ def analyze(
     try:
         # Initialize configuration
         with console.status("[bold green]Loading configuration..."):
-            config_manager = ConfigurationManager(codebase_path)
+            config_manager = ConfigurationManager(codebase_path_obj)
             config_manager.load_environment()
 
             # Validate configuration
@@ -229,7 +231,7 @@ def analyze(
     "codebase_path", type=click.Path(exists=True, file_okay=False, dir_okay=True)
 )
 @click.option("--check-api", is_flag=True, help="Test API connectivity")
-def setup(codebase_path: str, check_api: bool):
+def setup(codebase_path: str, check_api: bool) -> None:
     """Setup and validate project environment and configuration.
 
     CODEBASE_PATH: Path to the project directory to validate
@@ -240,12 +242,12 @@ def setup(codebase_path: str, check_api: bool):
     - Required dependencies
     - File permissions
     """
-    codebase_path = Path(codebase_path).resolve()
+    codebase_path_obj = Path(codebase_path).resolve()
 
     console.print(
         Panel.fit(
             f"[bold blue]Environment Setup Validation[/bold blue]\n"
-            f"[cyan]Project Path:[/cyan] {codebase_path}",
+            f"[cyan]Project Path:[/cyan] {codebase_path_obj}",
             border_style="blue",
         )
     )
@@ -255,16 +257,16 @@ def setup(codebase_path: str, check_api: bool):
     try:
         # Check configuration
         console.print("\n[bold]Checking configuration...[/bold]")
-        config_manager = ConfigurationManager(codebase_path)
+        config_manager = ConfigurationManager(codebase_path_obj)
 
         # Check if .env file exists
-        env_file = codebase_path / ".env"
+        env_file = codebase_path_obj / ".env"
         if not env_file.exists():
             console.print("[yellow]⚠ No .env file found[/yellow]")
             console.print(f"[cyan]Please create a .env file at: {env_file}[/cyan]")
 
             # Check for .env.example
-            env_example = codebase_path / ".env.example"
+            env_example = codebase_path_obj / ".env.example"
             if env_example.exists():
                 console.print(
                     f"[green]✓ Found .env.example template at: {env_example}[/green]"

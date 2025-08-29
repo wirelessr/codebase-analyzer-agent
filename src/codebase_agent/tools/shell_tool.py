@@ -9,6 +9,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 class ShellExecutionError(Exception):
     """Raised when shell command execution fails."""
 
-    def __init__(self, command: str, exit_code: int, stderr: str, message: str = None):
+    def __init__(
+        self, command: str, exit_code: int, stderr: str, message: str | None = None
+    ):
         self.command = command
         self.exit_code = exit_code
         self.stderr = stderr
@@ -231,7 +234,7 @@ class ShellTool:
             # Other OS-level errors
             return False, "", f"OS error: {str(e)}"
 
-    def get_execution_stats(self) -> dict[str, any]:
+    def get_execution_stats(self) -> dict[str, Any]:
         """Get execution statistics for monitoring and debugging.
 
         Returns:

@@ -108,7 +108,7 @@ class LogParser:
 
     @staticmethod
     def get_session_logs(
-        session_id: str, logs_dir: str | Path = None
+        session_id: str, logs_dir: str | Path | None = None
     ) -> SessionLogs | None:
         """Parse and structure logs for a specific session."""
         if logs_dir is None:
@@ -142,7 +142,7 @@ class LogParser:
         ]
 
         # Reconstruct state from events
-        state = {
+        state: dict[str, Any] = {
             "current_iteration": 0,
             "accumulated_knowledge": [],
             "confidence_level": 0.0,
@@ -285,7 +285,7 @@ class StructuredLogger:
         command: str,
         exit_code: int,
         output_size: int,
-        files_found: list[str] = None,
+        files_found: list[str] | None = None,
     ) -> None:
         """Log a shell command execution."""
         data = {

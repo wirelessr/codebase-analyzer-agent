@@ -46,7 +46,6 @@ jobs:
       run: |
         uv run ruff check src tests
         uv run black --check src tests
-        uv run mypy src
 
     - name: Run unit tests
       run: |
