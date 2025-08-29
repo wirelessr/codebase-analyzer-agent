@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
@@ -48,62 +47,11 @@ jobs:
         name: python-package-distributions
         path: dist/
 
-  publish-to-pypi:
-    name: Publish to PyPI
-    if: startsWith(github.ref, 'refs/tags/')
-    needs:
-    - build
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/codebase-agent
-    permissions:
-      id-token: write
 
-    steps:
-    - name: Download distributions
-      uses: actions/download-artifact@v4
-      with:
-        name: python-package-distributions
-        path: dist/
 
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
 
-  publish-to-github:
-    name: Publish to GitHub Packages
-    needs:
-    - build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
 
-    - name: Download distributions
-      uses: actions/download-artifact@v4
-      with:
-        name: python-package-distributions
-        path: dist/
-
-    - name: Set up uv
-      uses: astral-sh/setup-uv@v3
-
-    - name: Configure GitHub Packages
-      run: |
-        uv run pip config set global.index-url https://pypi.org/simple/
-        uv run pip config set global.extra-index-url https://pypi.pkg.github.com/${{ github.repository_owner }}/
-
-    - name: Publish to GitHub Packages
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
-      run: |
-        uv run twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
 
   create-release:
     name: Create GitHub Release
