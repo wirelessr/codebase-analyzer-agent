@@ -56,8 +56,8 @@ For development:
 ```bash
 uv sync --extra dev
 
-# Optional: Install type checking tools
-uv sync --extra typing
+# Optional: Install type checking tools along with dev dependencies
+uv sync --extra dev --extra typing
 ```
 
 ### 3. Configure Environment
