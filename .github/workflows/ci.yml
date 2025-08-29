@@ -44,12 +44,12 @@ jobs:
 
     - name: Run linting
       run: |
-        uv run ruff check src tests
-        uv run black --check src tests
+        uv run ruff check codebase_agent tests
+        uv run black --check codebase_agent tests
 
     - name: Run unit tests
       run: |
-        uv run pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term
+        uv run pytest tests/unit/ -v --cov=codebase_agent --cov-report=xml --cov-report=term
 
     - name: Upload coverage reports
       if: matrix.python-version == '3.11'

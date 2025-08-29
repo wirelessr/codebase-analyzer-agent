@@ -174,7 +174,7 @@ pre-commit install
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest --cov=codebase_agent --cov-report=html
 
 # Run specific test file
 uv run pytest tests/test_configuration.py
@@ -184,13 +184,13 @@ uv run pytest tests/test_configuration.py
 
 ```bash
 # Format code
-uv run black src tests
+uv run black codebase_agent tests
 
 # Lint code
-uv run ruff check src tests
+uv run ruff check codebase_agent tests
 
 # Type checking
-uv run mypy src
+uv run mypy codebase_agent
 ```
 
 ## Configuration Options
