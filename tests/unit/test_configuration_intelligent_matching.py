@@ -177,8 +177,6 @@ class TestConfigurationGetModelClient:
             )
             if compatible_model:
                 # Test model_info extraction
-                config_manager._get_model_info_from_autogen_model(
-                    compatible_model
-                )
+                config_manager._get_model_info_from_autogen_model(compatible_model)
                 # model_info might be None if AutoGen client creation fails in test env
                 # That's OK, we're mainly testing that the logic doesn't crash

@@ -113,7 +113,9 @@ class ConfigurationManager:
             logger.debug(f"Configuration loaded with {len(self._config)} variables")
 
         except Exception as e:
-            raise ConfigurationError(f"Failed to load environment configuration: {e}") from e
+            raise ConfigurationError(
+                f"Failed to load environment configuration: {e}"
+            ) from e
 
     def validate_configuration(self) -> list[str]:
         """Validate required configuration values.

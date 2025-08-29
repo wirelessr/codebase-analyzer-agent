@@ -104,9 +104,9 @@ class TestCodeAnalyzer:
 
         assert not convergence["confidence_threshold_met"]  # confidence < 8
         assert not convergence["question_answered"]  # need_shell_execution is True
-        assert (
-            not convergence["sufficient_code_coverage"]
-        )  # len(context) < 2 and total_commands < 3
+        assert not convergence[
+            "sufficient_code_coverage"
+        ]  # len(context) < 2 and total_commands < 3
 
     def test_system_message_contains_knowledge_base_guidance(self, analyzer):
         """Test that system message includes collaborative knowledge base guidance."""
