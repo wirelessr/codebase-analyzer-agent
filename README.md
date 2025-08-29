@@ -68,7 +68,7 @@ uv sync --extra dev
    OPENAI_API_KEY=your_openai_api_key_here
    OPENAI_BASE_URL=https://api.openai.com/v1
    OPENAI_MODEL=gpt-4
-   
+
    # For OpenRouter (alternative)
    # OPENAI_API_KEY=your_openrouter_api_key_here
    # OPENAI_BASE_URL=https://openrouter.ai/api/v1

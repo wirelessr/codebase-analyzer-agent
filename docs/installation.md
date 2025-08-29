@@ -65,7 +65,7 @@ If using GitHub Packages (private repositories):
    ```bash
    # Configure for pip
    pip config set global.extra-index-url https://pypi.pkg.github.com/your-org/
-   
+
    # Configure authentication
    echo "machine pypi.pkg.github.com" >> ~/.netrc
    echo "login your-github-username" >> ~/.netrc
@@ -90,7 +90,7 @@ If using GitHub Packages (private repositories):
    ```bash
    # Install UV
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+
    # Verify installation
    uv --version
    ```
@@ -101,7 +101,7 @@ If using GitHub Packages (private repositories):
    ```bash
    # Copy template
    cp .env.example .env
-   
+
    # Edit with your settings
    nano .env
    ```
@@ -331,7 +331,7 @@ pip install codebase-agent
 1. **Python version too old**:
    ```bash
    python --version  # Check version
-   
+
    # Install newer Python with UV
    uv python install 3.11
    ```
@@ -340,7 +340,7 @@ pip install codebase-agent
    ```bash
    # Use user install
    pip install --user codebase-agent
-   
+
    # Or use UV which manages environments
    uv add codebase-agent
    ```
@@ -349,7 +349,7 @@ pip install codebase-agent
    ```bash
    # Configure proxy for pip
    pip install --proxy http://proxy.company.com:8080 codebase-agent
-   
+
    # Configure proxy for UV
    export https_proxy=http://proxy.company.com:8080
    uv add codebase-agent
@@ -359,7 +359,7 @@ pip install codebase-agent
    ```bash
    # Update package index
    pip install --upgrade pip
-   
+
    # Try alternative index
    pip install -i https://pypi.org/simple/ codebase-agent
    ```

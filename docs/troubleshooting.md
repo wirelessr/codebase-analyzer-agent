@@ -42,7 +42,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check your API key format
    echo $OPENAI_API_KEY | wc -c  # Should be reasonable length
-   
+
    # For OpenAI: starts with sk-
    # For OpenRouter: starts with sk-or-
    # For Azure: different format entirely
@@ -54,7 +54,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    curl -H "Authorization: Bearer $OPENAI_API_KEY" \
         -H "Content-Type: application/json" \
         "$OPENAI_BASE_URL/models"
-   
+
    # Common base URLs:
    # OpenAI: https://api.openai.com/v1
    # OpenRouter: https://openrouter.ai/api/v1
@@ -66,7 +66,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check if variables are set
    env | grep OPENAI
-   
+
    # Load manually if needed
    export $(cat .env | xargs)
    ```
@@ -89,7 +89,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    # For OpenRouter (include provider prefix)
    OPENAI_MODEL=openai/gpt-4
    OPENAI_MODEL=anthropic/claude-3-sonnet
-   
+
    # For Azure (use deployment name)
    OPENAI_MODEL=your-gpt4-deployment
    ```
@@ -109,10 +109,10 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # macOS and Linux
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+
    # Windows PowerShell
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-   
+
    # Restart terminal after installation
    ```
 
@@ -120,10 +120,10 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Using pip
    pip install uv
-   
+
    # Using Homebrew (macOS)
    brew install uv
-   
+
    # Using conda
    conda install -c conda-forge uv
    ```
@@ -133,7 +133,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    # Check if UV is in PATH
    which uv
    uv --version
-   
+
    # Add to PATH if needed (add to ~/.bashrc or ~/.zshrc)
    export PATH="$HOME/.cargo/bin:$PATH"
    ```
@@ -146,11 +146,11 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # List available Python versions
    uv python list
-   
+
    # Install specific version
    uv python install 3.11
    uv python install 3.12
-   
+
    # Use specific Python version
    uv sync --python 3.11
    ```
@@ -207,7 +207,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Instead of broad queries
    codebase-agent analyze "understand the entire application"
-   
+
    # Use specific, focused queries
    codebase-agent analyze "find authentication mechanisms in the user module"
    ```
@@ -217,7 +217,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    # Analyze specific directory
    cd src/
    codebase-agent analyze "implement user validation in this directory"
-   
+
    # Use .gitignore to exclude large files
    echo "node_modules/" >> .gitignore
    echo "*.log" >> .gitignore
@@ -232,7 +232,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check directory permissions
    ls -la /path/to/codebase
-   
+
    # Fix permissions if needed
    chmod -R +r /path/to/codebase
    ```
@@ -248,7 +248,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check if path is a symlink
    ls -la /path/to/codebase
-   
+
    # For network drives, ensure proper mounting
    mount | grep /path/to/codebase
    ```
@@ -338,7 +338,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Test DNS resolution
    nslookup api.openai.com
-   
+
    # Test HTTP connectivity
    curl -I https://api.openai.com/v1/models
    ```
@@ -397,7 +397,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    # Ubuntu/Debian
    sudo apt update
    sudo apt install build-essential python3-dev
-   
+
    # CentOS/RHEL
    sudo yum groupinstall "Development Tools"
    sudo yum install python3-devel
@@ -407,7 +407,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check SELinux status
    getenforce
-   
+
    # Temporarily disable if needed
    sudo setenforce 0
    ```
@@ -427,10 +427,10 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check main log
    tail -f logs/agent.log
-   
+
    # Parse conversation logs
    cat logs/conversations/*.json | jq '.execution_timeline[]'
-   
+
    # Search for errors
    grep -i error logs/agent.log
    grep -i timeout logs/agent.log
@@ -442,7 +442,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Filter by event type
    cat logs/conversations/*.json | jq '.execution_timeline[] | select(.event_type == "command_executed")'
-   
+
    # Check agent interactions
    cat logs/conversations/*.json | jq '.execution_timeline[] | select(.agent == "code_analyzer")'
    ```
@@ -451,7 +451,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Check execution times
    cat logs/conversations/*.json | jq '.execution_stats'
-   
+
    # Find slow operations
    grep -E "(timeout|slow|error)" logs/agent.log
    ```
@@ -466,10 +466,10 @@ env | grep -E "(OPENAI|MODEL|API)"
    uname -a
    uv --version
    uv python list
-   
+
    # Package versions
    uv tree | grep -E "(autogen|openai|click)"
-   
+
    # Configuration (without sensitive data)
    env | grep -E "(OPENAI_BASE|OPENAI_MODEL|LOG_LEVEL)" | sed 's/API_KEY=.*/API_KEY=***/'
    ```
@@ -484,7 +484,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Recent logs
    tail -100 logs/agent.log
-   
+
    # Latest conversation
    cat logs/conversations/$(ls -t logs/conversations/ | head -1)
    ```
@@ -509,7 +509,7 @@ env | grep -E "(OPENAI|MODEL|API)"
    ```bash
    # Test different models
    OPENAI_MODEL=gpt-3.5-turbo codebase-agent analyze "test query"
-   
+
    # Test different providers
    OPENAI_BASE_URL=https://openrouter.ai/api/v1 codebase-agent analyze "test query"
    ```

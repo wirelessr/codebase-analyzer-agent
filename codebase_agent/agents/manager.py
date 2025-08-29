@@ -98,10 +98,12 @@ class AgentManager:
 
             # Task Specialist reviews the analysis
             self.logger.info("Task Specialist reviewing analysis...")
-            is_complete, feedback_message, confidence_score = (
-                self.task_specialist.review_analysis(
-                    analysis_result, query, review_count
-                )
+            (
+                is_complete,
+                feedback_message,
+                confidence_score,
+            ) = self.task_specialist.review_analysis(
+                analysis_result, query, review_count
             )
 
             # Check if specialist accepts the analysis

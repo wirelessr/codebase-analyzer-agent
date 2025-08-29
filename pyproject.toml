@@ -17,13 +17,13 @@ maintainers = [
 keywords = ["autogen", "codebase", "analysis", "ai", "agents", "code-understanding"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers", 
+    "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: MIT License",
@@ -33,7 +33,7 @@ dependencies = [
     "autogen-agentchat==0.7.4",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
-    "pydantic>=2.0.0", 
+    "pydantic>=2.0.0",
     "openai>=1.0.0",
     "rich>=13.0.0",
     "autogen-ext[openai]==0.7.4",
@@ -154,6 +154,7 @@ exclude_lines = [
 dev = [
     "black>=25.1.0",
     "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
