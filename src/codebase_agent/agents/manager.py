@@ -4,9 +4,9 @@ Agent Manager for orchestrating multi-agent codebase analysis.
 This module implements the central orchestration layer that coordinates
 Code Analyzer and Task Specialist through a review cycle mechanism.
 """
+
 import logging
-from typing import Dict, Any, Optional
-from pathlib import Path
+from typing import Any
 
 from ..config.configuration import ConfigurationManager
 from ..tools.shell_tool import ShellTool
@@ -17,112 +17,136 @@ from .task_specialist import TaskSpecialist
 class AgentManager:
     """
     Orchestrates multi-agent codebase analysis with review cycles.
-    
+
     The manager coordinates between Code Analyzer and Task Specialist,
     implementing a review cycle where the specialist can provide feedback
     for up to 3 iterations, after which the analysis is forcibly accepted.
     """
-    
+
     def __init__(self, config_manager: ConfigurationManager):
         """
         Initialize the Agent Manager.
-        
+
         Args:
             config_manager: Configuration manager for LLM settings
         """
         self.config_manager = config_manager
         self.logger = logging.getLogger(__name__)
         self.max_specialist_reviews = 3
-        
+
         # Initialize agents
-        self.code_analyzer: Optional[CodeAnalyzer] = None
-        self.task_specialist: Optional[TaskSpecialist] = None
-        
+        self.code_analyzer: CodeAnalyzer | None = None
+        self.task_specialist: TaskSpecialist | None = None
+
     def initialize_agents(self) -> None:
         """Initialize all specialized agents with their configurations."""
         try:
             model_client = self.config_manager.get_model_client()
-            
-            # Create shell tool (we'll use current directory as default, 
+
+            # Create shell tool (we'll use current directory as default,
             # but this will be overridden by the actual codebase path during analysis)
             shell_tool = ShellTool(".")
-            
+
             self.code_analyzer = CodeAnalyzer(model_client, shell_tool)
             self.task_specialist = TaskSpecialist(model_client)
-            
+
             self.logger.info("Successfully initialized all agents")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to initialize agents: {e}")
             raise
-    
+
     def process_query_with_review_cycle(self, query: str, codebase_path: str) -> str:
         """
         Process user query through multi-round analysis and review cycle.
-        
+
         This method implements the core review cycle:
         1. Code Analyzer analyzes the codebase
         2. Task Specialist reviews the analysis
         3. If not satisfied, specialist provides feedback and analyzer re-analyzes
         4. Repeat up to 3 times, then force accept
-        
+
         Args:
             query: User's task description
             codebase_path: Path to the codebase to analyze
-            
+
         Returns:
             Final synthesized response after specialist approval or max reviews reached
         """
         if not self.code_analyzer or not self.task_specialist:
-            raise RuntimeError("Agents not initialized. Call initialize_agents() first.")
-        
+            raise RuntimeError(
+                "Agents not initialized. Call initialize_agents() first."
+            )
+
         self.logger.info(f"Starting analysis for query: {query}")
         self.logger.info(f"Codebase path: {codebase_path}")
-        
+
         specialist_feedback = None
         review_count = 0
-        
+
         while review_count < self.max_specialist_reviews:
             review_count += 1
-            self.logger.info(f"Starting review cycle {review_count}/{self.max_specialist_reviews}")
-            
+            self.logger.info(
+                f"Starting review cycle {review_count}/{self.max_specialist_reviews}"
+            )
+
             # Code Analyzer analyzes the codebase
             self.logger.info("Code Analyzer starting analysis...")
-            analysis_result = self.code_analyzer.analyze_codebase(query, codebase_path, specialist_feedback)
-            
+            analysis_result = self.code_analyzer.analyze_codebase(
+                query, codebase_path, specialist_feedback
+            )
+
             # Task Specialist reviews the analysis
             self.logger.info("Task Specialist reviewing analysis...")
-            is_complete, feedback_message, confidence_score = self.task_specialist.review_analysis(
-                analysis_result, query, review_count
+            is_complete, feedback_message, confidence_score = (
+                self.task_specialist.review_analysis(
+                    analysis_result, query, review_count
+                )
             )
-            
+
             # Check if specialist accepts the analysis
             if is_complete:
-                self.logger.info(f"Analysis accepted on review cycle {review_count} with confidence {confidence_score:.2f}")
-                return self._synthesize_final_response(analysis_result, True, feedback_message, query)
-            
+                self.logger.info(
+                    f"Analysis accepted on review cycle {review_count} with confidence {confidence_score:.2f}"
+                )
+                return self._synthesize_final_response(
+                    analysis_result, True, feedback_message, query
+                )
+
             # If this was the last allowed review, force accept
             if review_count >= self.max_specialist_reviews:
-                self.logger.warning(f"Max reviews ({self.max_specialist_reviews}) reached. Force accepting analysis.")
-                return self._synthesize_final_response(analysis_result, False, feedback_message, query)
-            
+                self.logger.warning(
+                    f"Max reviews ({self.max_specialist_reviews}) reached. Force accepting analysis."
+                )
+                return self._synthesize_final_response(
+                    analysis_result, False, feedback_message, query
+                )
+
             # Get feedback and prepare for next iteration
             self.logger.info(f"Analysis rejected. Feedback: {feedback_message}")
             specialist_feedback = feedback_message
-        
+
         # This should never be reached due to the force accept logic above
-        return self._synthesize_final_response(analysis_result, False, feedback_message, query)
-    
-    def _synthesize_final_response(self, analysis_result: str, is_accepted: bool, feedback_message: str, original_query: str) -> str:
+        return self._synthesize_final_response(
+            analysis_result, False, feedback_message, query
+        )
+
+    def _synthesize_final_response(
+        self,
+        analysis_result: str,
+        is_accepted: bool,
+        feedback_message: str,
+        original_query: str,
+    ) -> str:
         """
         Synthesize the final response from analysis and review results.
-        
+
         Args:
             analysis_result: The final analysis from Code Analyzer
             is_accepted: Whether the analysis was accepted by the specialist
             feedback_message: The feedback from Task Specialist
             original_query: The original user query
-            
+
         Returns:
             Synthesized final response
         """
@@ -134,7 +158,7 @@ class AgentManager:
 ## Analysis:
 {analysis_result}
 """
-        
+
         # Add specialist insights if available and positive
         if is_accepted and feedback_message:
             final_response += f"""
@@ -142,7 +166,7 @@ class AgentManager:
 ## Specialist Review:
 {feedback_message}
 """
-        
+
         # Add any warnings or notes for forced acceptance
         if not is_accepted:
             final_response += """
@@ -156,29 +180,33 @@ This analysis was completed after reaching the maximum number of review cycles. 
 ## Areas for Further Investigation:
 {feedback_message}
 """
-        
+
         return final_response
-    
+
     def get_agent(self, agent_name: str) -> Any:
         """
         Retrieve specific agent by name.
-        
+
         Args:
             agent_name: Name of the agent ('code_analyzer' or 'task_specialist')
-            
+
         Returns:
             The requested agent instance
-            
+
         Raises:
             ValueError: If agent name is invalid
             RuntimeError: If agents not initialized
         """
         if not self.code_analyzer or not self.task_specialist:
-            raise RuntimeError("Agents not initialized. Call initialize_agents() first.")
-        
-        if agent_name == 'code_analyzer':
+            raise RuntimeError(
+                "Agents not initialized. Call initialize_agents() first."
+            )
+
+        if agent_name == "code_analyzer":
             return self.code_analyzer
-        elif agent_name == 'task_specialist':
+        elif agent_name == "task_specialist":
             return self.task_specialist
         else:
-            raise ValueError(f"Unknown agent name: {agent_name}. Available: 'code_analyzer', 'task_specialist'")
+            raise ValueError(
+                f"Unknown agent name: {agent_name}. Available: 'code_analyzer', 'task_specialist'"
+            )

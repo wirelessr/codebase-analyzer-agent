@@ -17,25 +17,25 @@ This shared knowledge base ensures all critical information is preserved across 
 of codebases using multi-round self-iteration and shell command execution.
 """
 
-from typing import Dict, List, Optional, Tuple
-from autogen_agentchat.agents import AssistantAgent
 import logging
+
+from autogen_agentchat.agents import AssistantAgent
 
 
 class CodeAnalyzer:
     """
     Technical expert agent responsible for codebase analysis using shell commands
     and iterative exploration.
-    
+
     The Code Analyzer performs multi-round self-iteration to progressively analyze
     codebases, building knowledge through targeted shell command execution and
     self-assessment of analysis completeness.
     """
-    
-    def __init__(self, config: Dict, shell_tool):
+
+    def __init__(self, config: dict, shell_tool):
         """
         Initialize the Code Analyzer agent.
-        
+
         Args:
             config: Configuration dict containing model settings
             shell_tool: Shell execution tool for codebase exploration
@@ -43,23 +43,23 @@ class CodeAnalyzer:
         self.config = config
         self.shell_tool = shell_tool
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize AutoGen agent with shell tool capability
         self._agent = self._create_autogen_agent()
-    
+
     def _create_autogen_agent(self) -> AssistantAgent:
         """Create and configure the AutoGen AssistantAgent without shell tool capability."""
         system_message = self._get_system_message()
-        
+
         # Create the agent without tools (LLM will provide commands via JSON response)
         agent = AssistantAgent(
             name="code_analyzer",
             system_message=system_message,
-            model_client=self.config
+            model_client=self.config,
         )
-        
+
         return agent
-    
+
     def _get_system_message(self) -> str:
         """Get the system message for the Code Analyzer agent."""
         return """You are a Code Analyzer, a technical expert responsible for comprehensive codebase analysis.
@@ -114,15 +114,17 @@ IMPORTANT: If this is your first iteration analyzing a codebase, you MUST set ne
 
 When you have enough information to provide a comprehensive answer, set need_shell_execution to false and provide your final analysis in current_analysis field."""
 
-    def analyze_codebase(self, query: str, codebase_path: str, specialist_feedback: Optional[str] = None) -> str:
+    def analyze_codebase(
+        self, query: str, codebase_path: str, specialist_feedback: str | None = None
+    ) -> str:
         """
         Analyze codebase with multi-round self-iteration for progressive analysis.
-        
+
         Args:
             query: User's analysis request
             codebase_path: Path to the codebase to analyze
             specialist_feedback: Optional feedback from Task Specialist to guide analysis focus
-            
+
         Returns:
             Comprehensive analysis result
         """
@@ -133,51 +135,57 @@ When you have enough information to provide a comprehensive answer, set need_she
         shell_execution_history = []
         shared_key_findings = []  # Collaborative knowledge base
         convergence_indicators = {
-            'sufficient_code_coverage': False,
-            'question_answered': False,
-            'confidence_threshold_met': False
+            "sufficient_code_coverage": False,
+            "question_answered": False,
+            "confidence_threshold_met": False,
         }
-        
+
         while current_iteration < max_iterations:
             current_iteration += 1
-            
+
             # Prepare iteration-specific prompt
             iteration_prompt = self._build_iteration_prompt(
-                query, codebase_path, current_iteration, analysis_context, 
-                shell_execution_history, shared_key_findings, convergence_indicators, specialist_feedback
+                query,
+                codebase_path,
+                current_iteration,
+                analysis_context,
+                shell_execution_history,
+                shared_key_findings,
+                convergence_indicators,
+                specialist_feedback,
             )
-            
+
             # Execute analysis step with agent (LLM decision phase)
             def run_step():
                 import asyncio
-                
+
                 async def async_step():
                     result = await self.agent.run(task=iteration_prompt)
                     return result
-                
+
                 return asyncio.run(async_step())
-            
+
             step_response = run_step()
-            
+
             # Extract text from TaskResult object
             response_text = self._extract_response_text(step_response)
-            
+
             # Parse JSON response from LLM
             try:
                 import json
-                import re
+
                 self.logger.debug(f"Raw LLM response: {response_text[:500]}...")
-                
+
                 # Extract JSON from markdown code blocks if present
                 json_text = self._extract_json_from_response(response_text)
-                
+
                 llm_decision = json.loads(json_text)
                 self.logger.debug(f"Parsed LLM decision: {llm_decision}")
-                
+
                 # Update shared key findings from LLM response
-                if 'key_findings' in llm_decision:
-                    shared_key_findings = llm_decision['key_findings']
-                    
+                if "key_findings" in llm_decision:
+                    shared_key_findings = llm_decision["key_findings"]
+
             except json.JSONDecodeError as e:
                 # Fallback: treat as plain text analysis without shell commands
                 self.logger.warning(f"JSON parsing failed: {e}")
@@ -188,114 +196,133 @@ When you have enough information to provide a comprehensive answer, set need_she
                     "key_findings": shared_key_findings,  # Preserve existing findings
                     "current_analysis": response_text,
                     "confidence_level": 5,
-                    "next_focus_areas": "Continue analysis"
+                    "next_focus_areas": "Continue analysis",
                 }
-            
+
             # Execute shell commands if needed (execution phase)
             shell_results = []
             if llm_decision.get("need_shell_execution", False):
                 shell_commands = llm_decision.get("shell_commands", [])
                 shell_results = self._execute_shell_commands(shell_commands)
-                shell_execution_history.append({
-                    'iteration': current_iteration,
-                    'commands': shell_commands,
-                    'results': shell_results,
-                    'timestamp': self._get_timestamp()
-                })
-            
+                shell_execution_history.append(
+                    {
+                        "iteration": current_iteration,
+                        "commands": shell_commands,
+                        "results": shell_results,
+                        "timestamp": self._get_timestamp(),
+                    }
+                )
+
             # Store analysis step
-            analysis_context.append({
-                'iteration': current_iteration,
-                'llm_decision': llm_decision,
-                'shell_results': shell_results,
-                'timestamp': self._get_timestamp()
-            })
-            
+            analysis_context.append(
+                {
+                    "iteration": current_iteration,
+                    "llm_decision": llm_decision,
+                    "shell_results": shell_results,
+                    "timestamp": self._get_timestamp(),
+                }
+            )
+
             # Assess convergence based on LLM's confidence and analysis
-            convergence_indicators = self._assess_convergence_from_json(llm_decision, analysis_context)
-            
+            convergence_indicators = self._assess_convergence_from_json(
+                llm_decision, analysis_context
+            )
+
             # Check if analysis is complete
-            if self._should_terminate(convergence_indicators) or not llm_decision.get("need_shell_execution", True):
+            if self._should_terminate(convergence_indicators) or not llm_decision.get(
+                "need_shell_execution", True
+            ):
                 break
-                
+
         # Synthesize final response
-        return self._synthesize_final_response(query, analysis_context, shared_key_findings, convergence_indicators)
-    
+        return self._synthesize_final_response(
+            query, analysis_context, shared_key_findings, convergence_indicators
+        )
+
     def _extract_response_text(self, step_response) -> str:
         """Extract text from AutoGen response object."""
         response_text = step_response
-        if hasattr(step_response, 'messages') and len(step_response.messages) > 0:
+        if hasattr(step_response, "messages") and len(step_response.messages) > 0:
             # Get the last message from TaskResult
             last_message = step_response.messages[-1]
-            if hasattr(last_message, 'content'):
+            if hasattr(last_message, "content"):
                 response_text = last_message.content
             else:
                 response_text = str(last_message)
-        elif hasattr(step_response, 'chat_message'):
+        elif hasattr(step_response, "chat_message"):
             # Handle other AutoGen Response objects (fallback)
-            if hasattr(step_response.chat_message, 'content'):
+            if hasattr(step_response.chat_message, "content"):
                 response_text = step_response.chat_message.content
-            elif hasattr(step_response.chat_message, 'to_text'):
+            elif hasattr(step_response.chat_message, "to_text"):
                 response_text = step_response.chat_message.to_text()
             else:
                 response_text = str(step_response.chat_message)
         elif not isinstance(step_response, str):
             response_text = str(step_response)
         return response_text
-    
-    def _execute_shell_commands(self, commands: List[str]) -> List[Dict]:
+
+    def _execute_shell_commands(self, commands: list[str]) -> list[dict]:
         """Execute a list of shell commands and return results."""
         results = []
         for command in commands:
             try:
                 success, stdout, stderr = self.shell_tool.execute_command(command)
                 result = {
-                    'command': command,
-                    'success': success,
-                    'stdout': stdout or "",
-                    'stderr': stderr or "",
-                    'error': None
+                    "command": command,
+                    "success": success,
+                    "stdout": stdout or "",
+                    "stderr": stderr or "",
+                    "error": None,
                 }
             except Exception as e:
                 result = {
-                    'command': command,
-                    'success': False,
-                    'stdout': "",
-                    'stderr': "",
-                    'error': str(e)
+                    "command": command,
+                    "success": False,
+                    "stdout": "",
+                    "stderr": "",
+                    "error": str(e),
                 }
             results.append(result)
-            
+
         return results
-    
-    def _assess_convergence_from_json(self, llm_decision: Dict, context: list) -> dict:
+
+    def _assess_convergence_from_json(self, llm_decision: dict, context: list) -> dict:
         """Assess convergence based on LLM's JSON response."""
         convergence = {
-            'sufficient_code_coverage': False,
-            'question_answered': False,
-            'confidence_threshold_met': False
+            "sufficient_code_coverage": False,
+            "question_answered": False,
+            "confidence_threshold_met": False,
         }
-        
+
         # Check confidence level from LLM
-        confidence = llm_decision.get('confidence_level', 0)
+        confidence = llm_decision.get("confidence_level", 0)
         if confidence >= 8:
-            convergence['confidence_threshold_met'] = True
-            
+            convergence["confidence_threshold_met"] = True
+
         # Check if LLM indicates no need for more shell execution
-        if not llm_decision.get('need_shell_execution', True):
-            convergence['question_answered'] = True
-            
+        if not llm_decision.get("need_shell_execution", True):
+            convergence["question_answered"] = True
+
         # Check for code coverage based on number of iterations and shell commands executed
-        total_commands = sum(len(ctx.get('shell_results', [])) for ctx in context)
+        total_commands = sum(len(ctx.get("shell_results", [])) for ctx in context)
         if total_commands >= 3 or len(context) >= 2:
-            convergence['sufficient_code_coverage'] = True
-            
+            convergence["sufficient_code_coverage"] = True
+
         return convergence
-    
-    def _build_iteration_prompt(self, query: str, codebase_path: str, iteration: int, 
-                               context: list, shell_history: list, shared_key_findings: list, convergence: dict, specialist_feedback: Optional[str] = None) -> str:
+
+    def _build_iteration_prompt(
+        self,
+        query: str,
+        codebase_path: str,
+        iteration: int,
+        context: list,
+        shell_history: list,
+        shared_key_findings: list,
+        convergence: dict,
+        specialist_feedback: str | None = None,
+    ) -> str:
         """Build unified prompt with shared knowledge base for progressive analysis."""
-        
+
         base_prompt = f"""
         CODEBASE ANALYSIS - ITERATION {iteration}
         
@@ -330,7 +357,7 @@ When you have enough information to provide a comprehensive answer, set need_she
         Remember: You must respond in valid JSON format with the exact structure specified in your system message.
         
         """
-        
+
         # Add specialist feedback if provided
         if specialist_feedback:
             base_prompt += f"""
@@ -342,38 +369,46 @@ When you have enough information to provide a comprehensive answer, set need_she
         exploration strategy.
         
         """
-        
+
         # Add shared knowledge base (collaborative key findings)
         if shared_key_findings:
-            base_prompt += "\n🧠 SHARED KNOWLEDGE BASE (Key Findings from All Iterations):\n"
+            base_prompt += (
+                "\n🧠 SHARED KNOWLEDGE BASE (Key Findings from All Iterations):\n"
+            )
             for i, finding in enumerate(shared_key_findings, 1):
                 base_prompt += f"{i}. {finding}\n"
-            base_prompt += "\nYou can ADD, UPDATE, REFINE, or REMOVE findings in your response.\n"
+            base_prompt += (
+                "\nYou can ADD, UPDATE, REFINE, or REMOVE findings in your response.\n"
+            )
         else:
             base_prompt += "\n🧠 SHARED KNOWLEDGE BASE: Empty (you'll create the first key findings)\n"
-        
+
         # Add recent shell execution results for context
         if shell_history:
             base_prompt += "\n📋 RECENT SHELL EXECUTION RESULTS:\n"
             for shell_exec in shell_history[-2:]:  # Show last 2 executions
                 base_prompt += f"\nIteration {shell_exec['iteration']}:\n"
-                for result in shell_exec['results']:
+                for result in shell_exec["results"]:
                     base_prompt += f"Command: {result['command']}\n"
-                    if result['success']:
-                        stdout_preview = result['stdout'][:300] + "..." if len(result['stdout']) > 300 else result['stdout']
+                    if result["success"]:
+                        stdout_preview = (
+                            result["stdout"][:300] + "..."
+                            if len(result["stdout"]) > 300
+                            else result["stdout"]
+                        )
                         base_prompt += f"Output: {stdout_preview}\n"
                     else:
                         base_prompt += f"Error: {result['stderr'] or result.get('error', 'Unknown error')}\n"
                 base_prompt += "\n"
-        
+
         # Add brief recent analysis context (not full history)
         if context:
             base_prompt += "\n📊 RECENT ANALYSIS CONTEXT:\n"
             for ctx in context[-1:]:  # Show only last context
-                llm_decision = ctx.get('llm_decision', {})
+                llm_decision = ctx.get("llm_decision", {})
                 base_prompt += f"Previous iteration {ctx['iteration']} focused on: {llm_decision.get('next_focus_areas', 'N/A')}\n"
                 base_prompt += f"Previous confidence: {llm_decision.get('confidence_level', 'N/A')}\n"
-        
+
         # Add current iteration context and convergence status
         base_prompt += f"""
         
@@ -408,25 +443,27 @@ When you have enough information to provide a comprehensive answer, set need_she
             "next_focus_areas": "What you plan to focus on next (or 'Final analysis complete' if done)"
         }}
         """
-        
+
         return base_prompt
-    
+
     def _should_terminate(self, convergence: dict) -> bool:
         """Determine if analysis should terminate based on convergence indicators."""
         # Terminate if all convergence criteria are met
         return all(convergence.values())
-    
-    def _synthesize_final_response(self, query: str, context: list, shared_key_findings: list, convergence: dict) -> str:
+
+    def _synthesize_final_response(
+        self, query: str, context: list, shared_key_findings: list, convergence: dict
+    ) -> str:
         """Synthesize final comprehensive response from shared knowledge base and iterations."""
         if not context:
             return "No analysis performed."
-            
+
         # Get the most recent analysis
         final_context = context[-1]
-        final_decision = final_context.get('llm_decision', {})
-        final_analysis = final_decision.get('current_analysis', 'No analysis available')
-        final_confidence = final_decision.get('confidence_level', 0)
-        
+        final_decision = final_context.get("llm_decision", {})
+        final_analysis = final_decision.get("current_analysis", "No analysis available")
+        final_confidence = final_decision.get("confidence_level", 0)
+
         # Create comprehensive synthesis
         synthesis = f"""
         CODEBASE ANALYSIS COMPLETE
@@ -438,14 +475,14 @@ When you have enough information to provide a comprehensive answer, set need_she
         
         KEY FINDINGS (Collaborative Knowledge Base):
         """
-        
+
         # Add key findings
         if shared_key_findings:
             for i, finding in enumerate(shared_key_findings, 1):
                 synthesis += f"{i}. {finding}\n"
         else:
             synthesis += "No key findings recorded.\n"
-        
+
         synthesis += f"""
         
         FINAL ANALYSIS:
@@ -453,66 +490,67 @@ When you have enough information to provide a comprehensive answer, set need_she
         
         EXECUTION SUMMARY:
         """
-        
+
         # Add execution summary
         for ctx in context:
-            iteration = ctx['iteration']
-            shell_results = ctx.get('shell_results', [])
-            llm_decision = ctx.get('llm_decision', {})
-            
+            iteration = ctx["iteration"]
+            shell_results = ctx.get("shell_results", [])
+            llm_decision = ctx.get("llm_decision", {})
+
             synthesis += f"\n--- Iteration {iteration} ---\n"
             synthesis += f"Commands executed: {len(shell_results)}\n"
             if shell_results:
                 for result in shell_results:
-                    status = "✓" if result['success'] else "✗"
+                    status = "✓" if result["success"] else "✗"
                     synthesis += f"  {status} {result['command']}\n"
             synthesis += f"Confidence: {llm_decision.get('confidence_level', 'N/A')}\n"
-            
+
             # Show knowledge base growth
-            kb_size = len(llm_decision.get('key_findings', []))
+            kb_size = len(llm_decision.get("key_findings", []))
             synthesis += f"Knowledge base size: {kb_size} findings\n"
-        
+
         return synthesis
-    
+
     def _get_timestamp(self) -> str:
         """Get current timestamp for logging."""
         import datetime
+
         return datetime.datetime.now().isoformat()
-    
+
     def _extract_json_from_response(self, response_text: str) -> str:
         """Extract JSON content from LLM response, handling markdown code blocks."""
         import re
-        
+
         # Try to find JSON within markdown code blocks
-        json_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+        json_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
         matches = re.findall(json_pattern, response_text, re.DOTALL)
-        
+
         if matches:
             # Use the first JSON block found
             json_content = matches[0].strip()
             self.logger.debug(f"Extracted JSON from markdown: {json_content[:200]}...")
             return json_content
-        
+
         # If no markdown blocks, check if the response starts/ends with braces
         stripped = response_text.strip()
-        if stripped.startswith('{') and stripped.endswith('}'):
+        if stripped.startswith("{") and stripped.endswith("}"):
             self.logger.debug("Found JSON-like content without markdown")
             return stripped
-            
+
         # Last resort: try to find JSON pattern in the text
-        json_like_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        json_like_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
         json_matches = re.findall(json_like_pattern, response_text, re.DOTALL)
-        
+
         if json_matches:
             # Try to find the most complete JSON (longest match)
             longest_match = max(json_matches, key=len)
             self.logger.debug(f"Found JSON-like pattern: {longest_match[:200]}...")
             return longest_match
-        
+
         # If no JSON found, return original text and let JSON parser fail
         self.logger.warning("No JSON pattern found in response")
         return response_text
-    
+
     @property
     def agent(self) -> AssistantAgent:
         """Get the underlying AutoGen agent."""

@@ -6,8 +6,10 @@ control flow (including force-accept after max reviews). Heuristic methods
 are intentionally not tested as they were removed per design.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from codebase_agent.agents.task_specialist import TaskSpecialist
 
 
@@ -20,21 +22,21 @@ class TestTaskSpecialist:
 
     @pytest.fixture
     def mock_agent(self):
-        with patch('codebase_agent.agents.task_specialist.AssistantAgent') as MockAgent:
+        with patch("codebase_agent.agents.task_specialist.AssistantAgent") as MockAgent:
             instance = Mock()
             instance.name = "task_specialist"
-            
+
             # Mock the run method instead of on_messages
             mock_task_result = Mock()
             mock_task_result.messages = []
-            
+
             async def mock_run(task):
                 # Create a mock message with content
                 mock_message = Mock()
                 mock_message.content = '{"is_complete": false, "feedback": "default mock response", "confidence": 0.5}'
                 mock_task_result.messages = [mock_message]
                 return mock_task_result
-            
+
             instance.run = mock_run
             MockAgent.return_value = instance
             yield instance
@@ -44,7 +46,7 @@ class TestTaskSpecialist:
         return TaskSpecialist(sample_config)
 
     def test_initialization(self, sample_config):
-        with patch('codebase_agent.agents.task_specialist.AssistantAgent') as mock_cls:
+        with patch("codebase_agent.agents.task_specialist.AssistantAgent") as mock_cls:
             specialist = TaskSpecialist(sample_config)
             assert specialist.config == sample_config
             assert specialist.review_count == 0
@@ -75,7 +77,7 @@ class TestTaskSpecialist:
         assert "ANALYSIS REPORT:" in prompt
         assert "REVIEW CRITERIA:" in prompt
         assert "OUTPUT FORMAT (MANDATORY):" in prompt
-        assert "{\"is_complete\": true" in prompt  # example JSON
+        assert '{"is_complete": true' in prompt  # example JSON
 
     def test_review_analysis_accept_llm_json(self, task_specialist, mock_agent):
         # Mock the TaskResult with a message containing acceptance JSON
@@ -83,12 +85,12 @@ class TestTaskSpecialist:
         mock_message.content = '{"is_complete": true, "feedback": "Analysis accepted - looks good", "confidence": 0.9}'
         mock_task_result = Mock()
         mock_task_result.messages = [mock_message]
-        
+
         async def mock_run(task):
             return mock_task_result
-        
+
         mock_agent.run = mock_run
-        
+
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report="Detailed analysis...",
             task_description="implement OAuth authentication",
@@ -104,12 +106,12 @@ class TestTaskSpecialist:
         mock_message.content = '{"is_complete": false, "feedback": "Need deeper analysis of integration points", "confidence": 0.55}'
         mock_task_result = Mock()
         mock_task_result.messages = [mock_message]
-        
+
         async def mock_run(task):
             return mock_task_result
-        
+
         mock_agent.run = mock_run
-        
+
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report="Shallow analysis...",
             task_description="implement OAuth authentication",
@@ -122,15 +124,15 @@ class TestTaskSpecialist:
     def test_review_analysis_unparsable_llm_response(self, task_specialist, mock_agent):
         # Mock the TaskResult with a message containing unparsable content
         mock_message = Mock()
-        mock_message.content = 'not a json response'
+        mock_message.content = "not a json response"
         mock_task_result = Mock()
         mock_task_result.messages = [mock_message]
-        
+
         async def mock_run(task):
             return mock_task_result
-        
+
         mock_agent.run = mock_run
-        
+
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report="Some analysis...",
             task_description="any task",
@@ -140,7 +142,9 @@ class TestTaskSpecialist:
         assert feedback.startswith("Analysis review could not be completed")
         assert confidence == 0.0
 
-    def test_review_analysis_force_accept_max_reviews(self, task_specialist, mock_agent):
+    def test_review_analysis_force_accept_max_reviews(
+        self, task_specialist, mock_agent
+    ):
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report="Still incomplete",
             task_description="task",

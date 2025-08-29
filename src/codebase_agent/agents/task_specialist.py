@@ -5,51 +5,51 @@ This module implements the Task Specialist agent responsible for reviewing
 analysis completeness and providing abstract feedback to guide further analysis.
 """
 
-from typing import Dict, List, Optional, Tuple
 import json
-import re
-from autogen_agentchat.agents import AssistantAgent
 import logging
+import re
+
+from autogen_agentchat.agents import AssistantAgent
 
 
 class TaskSpecialist:
     """
     Project manager agent responsible for reviewing analysis completeness and
     determining if results meet user requirements.
-    
+
     The Task Specialist provides abstract feedback without giving specific technical
     commands, focusing on WHAT information is missing rather than HOW to find it.
     """
-    
-    def __init__(self, config: Dict):
+
+    def __init__(self, config: dict):
         """
         Initialize the Task Specialist agent.
-        
+
         Args:
             config: Configuration dict containing model settings
         """
         self.config = config
         self.logger = logging.getLogger(__name__)
-        
+
         # Review tracking
         self.review_count = 0
         self.max_reviews = 3
-        
+
         # Initialize AutoGen agent
         self._agent = self._create_autogen_agent()
-    
+
     def _create_autogen_agent(self) -> AssistantAgent:
         """Create and configure the AutoGen AssistantAgent."""
         system_message = self._get_system_message()
-        
+
         agent = AssistantAgent(
             name="task_specialist",
             system_message=system_message,
             model_client=self.config,  # Updated for new API
         )
-        
+
         return agent
-    
+
     def _get_system_message(self) -> str:
         """Get the system message for the Task Specialist agent."""
         return """You are a Task Specialist, acting as a project manager responsible for reviewing analysis completeness and ensuring results meet user requirements.
@@ -91,22 +91,26 @@ Bad: "Check models.py and migrations folder"
 
 Your role is strategic oversight, not technical execution."""
 
-    def review_analysis(self, analysis_report: str, task_description: str, current_review_count: int) -> Tuple[bool, str, float]:
+    def review_analysis(
+        self, analysis_report: str, task_description: str, current_review_count: int
+    ) -> tuple[bool, str, float]:
         """
         Review analysis report for completeness against task requirements.
-        
+
         Args:
             analysis_report: The analysis report to review
             task_description: Original task description
             current_review_count: Current review iteration (1-based)
-            
+
         Returns:
             Tuple of (is_complete, feedback_message, confidence_score)
         """
         self.review_count = current_review_count
-        
-        self.logger.info(f"Starting Task Specialist review {self.review_count}/{self.max_reviews}")
-        
+
+        self.logger.info(
+            f"Starting Task Specialist review {self.review_count}/{self.max_reviews}"
+        )
+
         # Force accept if maximum reviews reached
         if self.review_count >= self.max_reviews:
             self.logger.info("Maximum reviews reached, force accepting analysis")
@@ -114,20 +118,24 @@ Your role is strategic oversight, not technical execution."""
 
         # Primary path: Ask the LLM to perform the review with a structured prompt
         try:
-            review_prompt = self._build_review_prompt(task_description, analysis_report, self.review_count)
-            
+            review_prompt = self._build_review_prompt(
+                task_description, analysis_report, self.review_count
+            )
+
             # Use agent.run() method directly like in the integration test
             def run_review():
                 import asyncio
-                
+
                 async def async_review():
                     result = await self._agent.run(task=review_prompt)
                     return result
-                
+
                 return asyncio.run(async_review())
-            
+
             llm_response = run_review()
-            is_complete, feedback, confidence = self._parse_llm_review_response(llm_response)
+            is_complete, feedback, confidence = self._parse_llm_review_response(
+                llm_response
+            )
 
             # If parsing succeeded, honor LLM decision
             if feedback:
@@ -148,7 +156,9 @@ Your role is strategic oversight, not technical execution."""
             0.0,
         )
 
-    def _build_review_prompt(self, task_description: str, analysis_report: str, review_number: int) -> str:
+    def _build_review_prompt(
+        self, task_description: str, analysis_report: str, review_number: int
+    ) -> str:
         """Build a structured prompt instructing the LLM to review and respond in JSON.
 
         The LLM must decide completeness per the review criteria and return a JSON object:
@@ -169,8 +179,7 @@ Your role is strategic oversight, not technical execution."""
             "not HOW to find it. Be specific about missing areas without prescribing technical commands."
         )
 
-        return (
-            f"""
+        return f"""
 You are a Task Specialist, acting as a project manager responsible for reviewing analysis completeness and ensuring results meet user requirements.
 
 REVIEW CONTEXT:
@@ -196,27 +205,26 @@ Examples:
 {{"is_complete": true, "feedback": "Analysis accepted - rationale...", "confidence": 0.86}}
 {{"is_complete": false, "feedback": "Analysis requires deeper coverage: - missing area 1 - missing area 2", "confidence": 0.55}}
 """
-    )
 
-    def _parse_llm_review_response(self, raw_response) -> Tuple[bool, str, float]:
+    def _parse_llm_review_response(self, raw_response) -> tuple[bool, str, float]:
         """Parse the LLM response and extract the JSON decision.
 
         Supports plain JSON or fenced code blocks. Falls back to empty feedback on failure.
         """
         # Handle TaskResult object from agent.run()
         response_text = raw_response
-        if hasattr(raw_response, 'messages') and len(raw_response.messages) > 0:
+        if hasattr(raw_response, "messages") and len(raw_response.messages) > 0:
             # Get the last message from TaskResult
             last_message = raw_response.messages[-1]
-            if hasattr(last_message, 'content'):
+            if hasattr(last_message, "content"):
                 response_text = last_message.content
             else:
                 response_text = str(last_message)
-        elif hasattr(raw_response, 'chat_message'):
+        elif hasattr(raw_response, "chat_message"):
             # Handle other AutoGen Response objects
-            if hasattr(raw_response.chat_message, 'content'):
+            if hasattr(raw_response.chat_message, "content"):
                 response_text = raw_response.chat_message.content
-            elif hasattr(raw_response.chat_message, 'to_text'):
+            elif hasattr(raw_response.chat_message, "to_text"):
                 response_text = raw_response.chat_message.to_text()
             else:
                 response_text = str(raw_response.chat_message)
@@ -230,12 +238,16 @@ Examples:
         json_text = None
 
         # 1) Exact JSON on first line
-        first_line = response_text.strip().splitlines()[0] if response_text.strip() else ""
+        first_line = (
+            response_text.strip().splitlines()[0] if response_text.strip() else ""
+        )
         if first_line.startswith("{") and first_line.endswith("}"):
             json_text = first_line
         else:
             # 2) Look for fenced JSON ```json ... ``` or any {...}
-            fenced = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", response_text, re.IGNORECASE)
+            fenced = re.search(
+                r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", response_text, re.IGNORECASE
+            )
             if fenced:
                 json_text = fenced.group(1)
             else:
@@ -262,9 +274,8 @@ Examples:
             return is_complete, feedback, confidence
         except Exception:
             return False, "", 0.0
-    
+
     @property
     def agent(self) -> AssistantAgent:
         """Get the underlying AutoGen agent."""
         return self._agent
-    

@@ -1,7 +1,7 @@
 """
 Integration tests for Code Analyzer Agent LLM and Prompt Effectiveness.
 
-TESTING SCENARIO: DEBUGGING AND ERROR ANALYSIS  
+TESTING SCENARIO: DEBUGGING AND ERROR ANALYSIS
 Tests the actual LLM integration and prompt effectiveness for debugging:
 - Bug identification and error detection with real LLM calls
 - Exception handling analysis and recommendations
@@ -11,10 +11,11 @@ Tests the actual LLM integration and prompt effectiveness for debugging:
 - Debugging-focused prompt validation and response quality
 """
 
-import pytest
-import tempfile
 import os
-from unittest.mock import Mock
+import tempfile
+
+import pytest
+
 from codebase_agent.agents.code_analyzer import CodeAnalyzer
 
 
@@ -25,6 +26,7 @@ class TestCodeAnalyzerLLMIntegration:
     def shell_tool(self, temp_codebase):
         """Create a real shell tool for testing."""
         from codebase_agent.tools.shell_tool import ShellTool
+
         return ShellTool(temp_codebase)
 
     @pytest.fixture
@@ -32,6 +34,7 @@ class TestCodeAnalyzerLLMIntegration:
         """Create real LLM configuration for testing."""
         try:
             from codebase_agent.config.configuration import ConfigurationManager
+
             config_manager = ConfigurationManager()
             config_manager.load_environment()
             return config_manager.get_model_client()
@@ -50,10 +53,11 @@ class TestCodeAnalyzerLLMIntegration:
             # Create a simple Python project structure with common bugs
             os.makedirs(os.path.join(temp_dir, "src"))
             os.makedirs(os.path.join(temp_dir, "tests"))
-            
+
             # Create Python files with deliberate bugs
             with open(os.path.join(temp_dir, "src", "main.py"), "w") as f:
-                f.write("""
+                f.write(
+                    """
 def calculate_average(numbers):
     # Bug: Division by zero when empty list
     return sum(numbers) / len(numbers)
@@ -87,10 +91,12 @@ def main():
 
 if __name__ == "__main__":
     main()
-""")
-            
+"""
+                )
+
             with open(os.path.join(temp_dir, "tests", "test_main.py"), "w") as f:
-                f.write("""
+                f.write(
+                    """
 import unittest
 import sys
 import os
@@ -117,10 +123,12 @@ class TestMain(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-""")
-            
+"""
+                )
+
             with open(os.path.join(temp_dir, "README.md"), "w") as f:
-                f.write("""
+                f.write(
+                    """
 # Test Project with Bugs
 
 This is a simple test project that contains several common programming bugs for debugging analysis.
@@ -137,89 +145,146 @@ This is a simple test project that contains several common programming bugs for 
 - User data processing
 - User lookup functionality
 - Unit tests (some failing)
-""")
-            
+"""
+                )
+
             yield temp_dir
 
     def test_basic_analysis_prompt_effectiveness(self, analyzer, temp_codebase):
         """Test debugging analysis prompt with real LLM."""
-        query = "分析這個Python專案中的潛在錯誤和異常處理問題，找出可能導致程式崩潰的bug"
-        
+        query = (
+            "分析這個Python專案中的潛在錯誤和異常處理問題，找出可能導致程式崩潰的bug"
+        )
+
         result = analyzer.analyze_codebase(query, temp_codebase)
-        
+
         # Verify the analysis contains expected debugging elements
         assert "CODEBASE ANALYSIS COMPLETE" in result
         assert len(result) > 100  # Should be a substantial debugging analysis
-        
+
         # Check for debugging-related analysis elements
-        debugging_keywords = ["error", "exception", "bug", "division", "keyerror", "none", "錯誤", "異常", "除錯"]
+        debugging_keywords = [
+            "error",
+            "exception",
+            "bug",
+            "division",
+            "keyerror",
+            "none",
+            "錯誤",
+            "異常",
+            "除錯",
+        ]
         result_lower = result.lower()
-        found_keywords = [keyword for keyword in debugging_keywords if keyword in result_lower]
-        assert len(found_keywords) >= 2, f"Expected debugging analysis keywords, found: {found_keywords}"
+        found_keywords = [
+            keyword for keyword in debugging_keywords if keyword in result_lower
+        ]
+        assert (
+            len(found_keywords) >= 2
+        ), f"Expected debugging analysis keywords, found: {found_keywords}"
 
     def test_analysis_convergence_prompt(self, analyzer, temp_codebase):
         """Test that debugging analysis prompts lead to convergence on error identification."""
         query = "完整除錯分析：找出這個專案中所有的錯誤處理缺陷和潛在的執行時錯誤"
-        
+
         result = analyzer.analyze_codebase(query, temp_codebase)
-        
+
         # Verify debugging analysis completion
         assert "CODEBASE ANALYSIS COMPLETE" in result
         assert "Iterations:" in result
-        
+
         # Extract iteration count
-        lines = result.split('\n')
+        lines = result.split("\n")
         iteration_line = next((line for line in lines if "Iterations:" in line), None)
         assert iteration_line is not None
-        
+
         # Should converge in reasonable number of iterations (not hit max limit)
         iteration_count = int(iteration_line.split("Iterations:")[1].strip().split()[0])
         assert 1 <= iteration_count <= 10
-        
+
         # Check for error identification
-        error_terms = ["division by zero", "keyerror", "error handling", "exception", "none handling", "錯誤處理", "異常"]
+        error_terms = [
+            "division by zero",
+            "keyerror",
+            "error handling",
+            "exception",
+            "none handling",
+            "錯誤處理",
+            "異常",
+        ]
         result_lower = result.lower()
         found_error_terms = [term for term in error_terms if term in result_lower]
-        assert len(found_error_terms) >= 1, f"Expected error identification, found: {found_error_terms}"
+        assert (
+            len(found_error_terms) >= 1
+        ), f"Expected error identification, found: {found_error_terms}"
 
     def test_prompt_chinese_language_support(self, analyzer, temp_codebase):
         """Test that debugging prompts work effectively in Chinese."""
         query = "評估這個專案的程式碼穩定性，找出容易造成程式當機的問題點"
-        
+
         result = analyzer.analyze_codebase(query, temp_codebase)
-        
+
         # Verify the LLM understood the Chinese debugging query
         assert "CODEBASE ANALYSIS COMPLETE" in result
-        
+
         # Should mention stability and crash-related concepts in response
-        stability_keywords = ["stability", "crash", "error", "exception", "穩定", "當機", "錯誤", "異常", "問題"]
+        stability_keywords = [
+            "stability",
+            "crash",
+            "error",
+            "exception",
+            "穩定",
+            "當機",
+            "錯誤",
+            "異常",
+            "問題",
+        ]
         result_lower = result.lower()
-        found_keywords = [keyword for keyword in stability_keywords if keyword in result_lower]
-        assert len(found_keywords) >= 2, f"Expected stability/debugging keywords, found: {found_keywords}"
+        found_keywords = [
+            keyword for keyword in stability_keywords if keyword in result_lower
+        ]
+        assert (
+            len(found_keywords) >= 2
+        ), f"Expected stability/debugging keywords, found: {found_keywords}"
 
     def test_specialist_feedback_prompt_integration(self, analyzer, temp_codebase):
         """Test that specialist feedback is properly integrated into debugging prompts."""
         query = "分析專案中的錯誤處理"
         feedback = "請特別關注除錯資訊的完整性和錯誤恢復機制的設計"
-        
-        result = analyzer.analyze_codebase(query, temp_codebase, specialist_feedback=feedback)
-        
+
+        result = analyzer.analyze_codebase(
+            query, temp_codebase, specialist_feedback=feedback
+        )
+
         # Verify feedback was incorporated into debugging analysis
         assert "CODEBASE ANALYSIS COMPLETE" in result
-        
+
         # Should reflect the specialist feedback focus on debugging and error recovery
         debugging_keywords = [
-            "error handling", "recovery", "debugging", "exception", "錯誤處理", "恢復", "除錯",
-            "error", "exception handling", "fault tolerance", "resilience", "robustness"
+            "error handling",
+            "recovery",
+            "debugging",
+            "exception",
+            "錯誤處理",
+            "恢復",
+            "除錯",
+            "error",
+            "exception handling",
+            "fault tolerance",
+            "resilience",
+            "robustness",
         ]
         result_lower = result.lower()
-        found_keywords = [keyword for keyword in debugging_keywords if keyword in result_lower]
+        found_keywords = [
+            keyword for keyword in debugging_keywords if keyword in result_lower
+        ]
         has_debugging_focus = len(found_keywords) >= 2
-        
+
         # If no direct keywords found, check if the analysis is substantial (indicating focus was applied)
         if not has_debugging_focus:
             # As long as we got a detailed analysis, specialist feedback was likely considered
-            assert len(result) > 200, f"Expected substantial debugging analysis when feedback provided, got {len(result)} chars"
+            assert (
+                len(result) > 200
+            ), f"Expected substantial debugging analysis when feedback provided, got {len(result)} chars"
         else:
             # Great! Found relevant debugging keywords
             pass
@@ -227,18 +292,31 @@ This is a simple test project that contains several common programming bugs for 
     def test_multi_round_prompt_consistency(self, analyzer, temp_codebase):
         """Test that multi-round debugging prompts maintain consistency."""
         query = "深入分析這個專案的錯誤處理機制和異常安全性設計"
-        
+
         result = analyzer.analyze_codebase(query, temp_codebase)
-        
+
         # Verify the debugging analysis went through multiple rounds
         assert "CODEBASE ANALYSIS COMPLETE" in result
         assert "Iterations:" in result
-        
+
         # Should contain consistent debugging and error handling analysis
-        debugging_keywords = ["error", "exception", "handling", "safety", "錯誤", "異常", "處理", "安全"]
+        debugging_keywords = [
+            "error",
+            "exception",
+            "handling",
+            "safety",
+            "錯誤",
+            "異常",
+            "處理",
+            "安全",
+        ]
         result_lower = result.lower()
-        found_keywords = [keyword for keyword in debugging_keywords if keyword in result_lower]
-        assert len(found_keywords) >= 2, f"Expected debugging consistency, found: {found_keywords}"
+        found_keywords = [
+            keyword for keyword in debugging_keywords if keyword in result_lower
+        ]
+        assert (
+            len(found_keywords) >= 2
+        ), f"Expected debugging consistency, found: {found_keywords}"
 
 
 # Manual test runner for development
