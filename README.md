@@ -1,5 +1,7 @@
 # AutoGen Codebase Understanding Agent
 
+[![CI](https://github.com/wirelessr/codebase-analyzer-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wirelessr/codebase-analyzer-agent/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/wirelessr/codebase-analyzer-agent/graph/badge.svg?token=CouWO5O69U)](https://codecov.io/gh/wirelessr/codebase-analyzer-agent)
+
 An intelligent agent system built with Microsoft AutoGen framework that analyzes, understands, and provides insights about codebases through multi-agent collaboration and shell-based exploration.
 
 ## Features
