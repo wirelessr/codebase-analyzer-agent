@@ -109,6 +109,11 @@ pythonpath = ["src"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests that require real LLM calls",
+    "unit: marks tests as unit tests (fast, isolated tests)",
+    "slow: marks tests as slow running tests",
+]
 
 [tool.coverage.run]
 source = ["src"]
