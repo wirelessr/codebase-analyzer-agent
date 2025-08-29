@@ -1,8 +1,14 @@
 """
 Integration test for Code Analyzer with real LLM and tool calls.
 
-This test verifies that the Code Analyzer actually calls shell tools
-when interacting with a real LLM to analyze codebases.
+TESTING SCENARIO: ARCHITECTURE ANALYSIS
+This test focuses on analyzing codebase architecture and system structure
+using real LLM interaction and shell tool execution. It verifies that
+the Code Analyzer can effectively understand and describe:
+- Project structure and organization
+- Component relationships and dependencies  
+- Module architecture and design patterns
+- System-level design decisions
 """
 
 import pytest
@@ -118,7 +124,7 @@ A sample Python project for testing.
             yield str(project_dir)
     
     def test_analyzer_dual_phase_execution(self, real_config, test_codebase):
-        """Test that analyzer uses dual-phase execution (LLM decision + shell execution)."""
+        """Test architecture analysis using dual-phase execution (LLM decision + shell execution)."""
         
         # Enable debug logging to see LLM responses
         import logging
@@ -129,42 +135,42 @@ A sample Python project for testing.
         tracking_tool = TrackingShellTool(test_codebase)
         analyzer = CodeAnalyzer(real_config, tracking_tool)
         
-        # Use a more explicit query that emphasizes the need for exploration
-        query = f"I need to understand this Python project's structure, main functionality, and key components. Please explore the files to analyze the codebase thoroughly."
+        # Focus on architecture analysis - understand system structure and design
+        query = f"Analyze the architecture of this Python project. I need to understand the system structure, component relationships, module organization, and overall design patterns used."
         
-        print("🚀 Starting dual-phase analysis with real LLM...")
+        print("🚀 Starting architecture analysis with real LLM...")
         print(f"📁 Test codebase: {test_codebase}")
         print(f"🔍 Query: {query}")
         
         # Run the full analyze_codebase flow which uses dual-phase execution
         result = analyzer.analyze_codebase(query, test_codebase)
         
-        print(f"📊 Analysis completed!")
+        print(f"📊 Architecture analysis completed!")
         print(f"🔧 Commands executed: {tracking_tool.calls}")
         print(f"📋 Result length: {len(result)} chars")
         print(f"📄 Result preview: {result[:300]}...")
         
-        # Check if we got a meaningful analysis result
-        assert len(result) > 100, f"Expected substantial analysis result, got {len(result)} chars"
+        # Check if we got a meaningful architecture analysis result
+        assert len(result) > 100, f"Expected substantial architecture analysis result, got {len(result)} chars"
         
         # In dual-phase execution, the analyzer should execute shell commands
         # even if the LLM doesn't support function calling directly
         if len(tracking_tool.calls) > 0:
             print("✅ Analyzer executed shell commands via dual-phase execution")
             
-            # Verify basic exploration happened
+            # Verify architectural exploration happened
             commands_str = ' '.join(tracking_tool.calls).lower()
             exploration_terms = ['ls', 'find', 'cat', 'grep', 'tree', 'dir', 'pwd']
             assert any(term in commands_str for term in exploration_terms), \
                 f"Expected exploration commands (ls, find, cat, etc.), got: {tracking_tool.calls}"
             
-            # Verify the result contains information from shell command outputs
+            # Verify the result contains architectural analysis information
             result_lower = result.lower()
-            project_terms = ['python', 'project', 'file', 'main.py', 'utils.py', 'readme']
-            assert any(term in result_lower for term in project_terms), \
-                f"Expected analysis to mention project files, got: {result[:200]}..."
+            architecture_terms = ['structure', 'component', 'module', 'function', 'class', 'import', 'design']
+            assert any(term in result_lower for term in architecture_terms), \
+                f"Expected architecture analysis to mention structural components, got: {result[:200]}..."
             
-            print("✅ Test passed: Dual-phase execution successfully analyzed codebase!")
+            print("✅ Test passed: Dual-phase execution successfully analyzed project architecture!")
         else:
             # This shouldn't happen with dual-phase execution unless there's a real error
             print("❌ No shell commands were executed")
@@ -178,12 +184,15 @@ A sample Python project for testing.
                 print("2. JSON parsing failed and fell back to text analysis")
                 print("3. LLM provided analysis without exploring")
                 
-                # For now, accept this as the LLM might be confident enough
-                # but log it as a potential issue
-                assert "error" not in result.lower() and "exception" not in result.lower(), \
-                    f"Analysis result contains errors: {result}"
+                # For architecture analysis, still check for relevant content
+                result_lower = result.lower()
+                architecture_terms = ['structure', 'component', 'module', 'design', 'architecture']
+                has_architecture_content = any(term in result_lower for term in architecture_terms)
+                
+                assert has_architecture_content, \
+                    f"Architecture analysis should contain structural information: {result}"
                     
-                print("⚠️  Test passed but no shell commands executed - LLM may have been overconfident")
+                print("⚠️  Test passed but no shell commands executed - LLM may have been overconfident about architecture")
             else:
                 pytest.fail(f"Dual-phase execution failed completely. Result: {result}")
 

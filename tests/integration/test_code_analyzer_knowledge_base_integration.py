@@ -1,15 +1,18 @@
 """
 Integration test for Code Analyzer LLM Knowledge Base Sharing Behavior.
 
-This test specifically validates the LLM's ability to maintain and utilize
-a shared knowledge base (key_findings) across multiple analysis iterations.
+TESTING SCENARIO: DATA FLOW ANALYSIS
+This test specifically validates the LLM's ability to analyze data flow
+patterns and information processing paths across the system using a 
+shared knowledge base across multiple analysis iterations.
 
-Tests the following knowledge base behaviors:
-- Knowledge accumulation across iterations
-- Knowledge refinement and updates
-- Knowledge retention and persistence
-- Effective knowledge utilization for analysis
-- Knowledge base convergence patterns
+Tests the following data flow analysis behaviors:
+- Data transformation and processing pipeline understanding
+- Information flow between system components
+- Data persistence and storage patterns
+- API request/response data handling
+- Cross-layer data exchange mechanisms
+- Knowledge accumulation for complex data flow mapping
 """
 
 import pytest
@@ -373,10 +376,10 @@ pytest-asyncio==0.21.1
             yield temp_dir
 
     def test_knowledge_base_accumulation_across_iterations(self, analyzer, complex_test_codebase):
-        """Test that knowledge accumulates properly across multiple iterations."""
+        """Test data flow analysis with knowledge accumulation across multiple iterations."""
         
-        # Use a query that requires multiple iterations to fully understand
-        query = "深入分析這個用戶管理系統的完整架構設計、設計模式和最佳實踐"
+        # Use a query focused on data flow analysis
+        query = "分析這個用戶管理系統的資料流設計：從API請求到資料庫操作的完整數據傳遞路徑、資料轉換過程、以及各層之間的資料交互模式"
         
         # Patch the LLM agent to capture intermediate responses
         captured_iterations = []
@@ -416,14 +419,20 @@ pytest-asyncio==0.21.1
         # Knowledge base should either grow or become more refined
         assert len(last_kb) >= len(first_kb), "Knowledge base should accumulate or refine findings"
         
-        # Final result should contain comprehensive analysis
+        # Final result should contain comprehensive data flow analysis
         assert "CODEBASE ANALYSIS COMPLETE" in result
-        assert len(result) > 500  # Should be substantial analysis
+        assert len(result) > 500  # Should be substantial data flow analysis
+        
+        # Check for data flow related content
+        data_flow_terms = ['data', 'flow', 'api', 'database', 'request', 'response', 'transformation', '資料', '數據', '流程']
+        result_lower = result.lower()
+        found_terms = [term for term in data_flow_terms if term in result_lower]
+        assert len(found_terms) >= 3, f"Expected data flow analysis terms, found: {found_terms}"
 
     def test_knowledge_base_refinement_and_updates(self, analyzer, complex_test_codebase):
-        """Test that the LLM refines and updates knowledge base entries over iterations."""
+        """Test data flow knowledge refinement and updates across iterations."""
         
-        query = "分析這個專案的資料庫設計和連接管理策略"
+        query = "分析這個專案的資料庫操作模式和資料持久化策略，包括連接管理、事務處理、資料存取層設計"
         
         # Capture all LLM responses to track knowledge refinement
         all_responses = []
@@ -453,26 +462,26 @@ pytest-asyncio==0.21.1
             first_findings = findings_evolution[0]
             later_findings = findings_evolution[-1]
             
-            # Check for evidence of refinement
-            # Either findings become more specific, or new findings are added
+            # Check for evidence of data flow analysis refinement
+            # Either findings become more specific, or new data flow findings are added
             database_related_count_first = sum(
                 1 for finding in first_findings 
-                if any(keyword in finding.lower() for keyword in ['database', 'connection', 'async', 'pool'])
+                if any(keyword in finding.lower() for keyword in ['database', 'connection', 'async', 'pool', 'transaction', 'data', 'persistence'])
             )
             
             database_related_count_later = sum(
                 1 for finding in later_findings
-                if any(keyword in finding.lower() for keyword in ['database', 'connection', 'async', 'pool'])
+                if any(keyword in finding.lower() for keyword in ['database', 'connection', 'async', 'pool', 'transaction', 'data', 'persistence'])
             )
             
-            # Should have more database-related findings as analysis progresses
+            # Should have more data flow related findings as analysis progresses
             assert database_related_count_later >= database_related_count_first, \
-                "Should accumulate more database-related findings over iterations"
+                "Should accumulate more data flow related findings over iterations"
         
-        # Final analysis should be comprehensive
+        # Final analysis should be comprehensive data flow analysis
         assert "CODEBASE ANALYSIS COMPLETE" in result
-        # Should contain database-related analysis
-        assert any(keyword in result.lower() for keyword in ['database', 'postgresql', 'async', 'connection'])
+        # Should contain data flow related analysis
+        assert any(keyword in result.lower() for keyword in ['database', 'postgresql', 'async', 'connection', 'transaction', 'data', 'persistence'])
 
     def test_knowledge_base_persistence_and_continuity(self, analyzer, complex_test_codebase):
         """Test that knowledge base maintains continuity and doesn't lose important findings."""

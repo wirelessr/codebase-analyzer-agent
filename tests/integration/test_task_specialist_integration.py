@@ -1,8 +1,15 @@
 """
 Integration test for Task Specialist with real LLM and review functionality.
 
-This test verifies that the Task Specialist actually interacts with a real LLM
-to review analysis reports and provide meaningful feedback based on prompts.
+TESTING SCENARIO: NEW FEATURE IMPLEMENTATION REVIEW
+This test verifies that the Task Specialist effectively reviews and provides
+feedback on feature implementation analyses using real LLM interaction.
+Focus areas include:
+- Feature implementation completeness assessment
+- Technical approach validation for new features
+- Integration strategy review
+- Security and best practices verification for new functionality
+- Implementation plan quality assurance
 """
 
 import pytest
@@ -67,14 +74,15 @@ class TestTaskSpecialistIntegration:
             assert False, f"Basic functionality failed: {e}"
     
     def test_specialist_reviews_incomplete_analysis(self, task_specialist):
-        """Test that specialist correctly identifies incomplete analysis."""
+        """Test specialist review of incomplete feature implementation analysis."""
         
         task_description = """
-        Add user authentication system to a Flask web application.
-        The system should support login/logout and session management.
+        Add a RESTful API with CRUD operations for a blog post management system.
+        The system should support creating, reading, updating, and deleting blog posts.
+        Include proper validation, error handling, and authentication.
         """
         
-        # Deliberately incomplete analysis
+        # Deliberately incomplete feature implementation analysis
         incomplete_analysis = """
         I found some files in the project:
         - app.py (main Flask application)
@@ -82,9 +90,10 @@ class TestTaskSpecialistIntegration:
         - templates/ (HTML templates)
         
         The app.py file imports Flask and creates an app instance.
+        There are some routes defined but no API endpoints yet.
         """
         
-        print("🚀 Testing specialist review of incomplete analysis...")
+        print("🚀 Testing specialist review of incomplete feature implementation analysis...")
         
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report=incomplete_analysis,
@@ -97,78 +106,83 @@ class TestTaskSpecialistIntegration:
         print(f"   Confidence: {confidence:.2f}")
         print(f"   Feedback: {feedback}")
         
-        # Verify that the specialist correctly identified incompleteness
+        # Verify that the specialist correctly identified incompleteness for feature implementation
         assert not is_complete, \
-            f"Expected incomplete analysis to be rejected, but was accepted. Feedback: {feedback}"
+            f"Expected incomplete feature analysis to be rejected, but was accepted. Feedback: {feedback}"
         
         assert len(feedback) > 50, \
             f"Expected detailed feedback, got: {feedback}"
         
-        # Feedback should mention missing areas related to authentication
+        # Feedback should mention missing areas related to API implementation
         feedback_lower = feedback.lower()
-        auth_terms = ['authentication', 'auth', 'login', 'session', 'security', 'implementation']
-        has_auth_focus = any(term in feedback_lower for term in auth_terms)
+        api_terms = ['api', 'crud', 'endpoint', 'rest', 'post', 'blog', 'implementation', 'validation', 'authentication']
+        has_api_focus = any(term in feedback_lower for term in api_terms)
         
-        assert has_auth_focus, \
-            f"Expected feedback to focus on authentication implementation gaps, got: {feedback}"
+        assert has_api_focus, \
+            f"Expected feedback to focus on API implementation gaps, got: {feedback}"
         
-        print("✅ Test passed: Specialist correctly identified incomplete analysis!")
+        print("✅ Test passed: Specialist correctly identified incomplete feature implementation analysis!")
     
     def test_specialist_accepts_complete_analysis(self, task_specialist):
-        """Test that specialist accepts thorough, complete analysis."""
+        """Test specialist accepts thorough feature implementation analysis."""
         
         task_description = """
-        Add user authentication system to a Flask web application.
-        The system should support login/logout and session management.
+        Add real-time chat functionality to the web application.
+        Include WebSocket support, message persistence, and user presence indicators.
         """
         
-        # Comprehensive analysis
+        # Comprehensive feature implementation analysis
         complete_analysis = """
-        EXISTING FUNCTIONALITY ANALYSIS:
-        - Found Flask app structure in app.py with basic routing
-        - User model exists in models.py with SQLAlchemy ORM
-        - Database configuration present using SQLite
-        - Templates directory with basic HTML structure
-        - Static assets folder for CSS/JS
+        EXISTING CODEBASE ANALYSIS:
+        - Found Flask app structure in app.py with basic routing framework
+        - User model exists in models.py with SQLAlchemy ORM setup
+        - Database configuration present using SQLite with migration support
+        - Templates directory with Jinja2 template structure and base layout
+        - Static assets folder for CSS/JS with existing jQuery integration
         
-        INTEGRATION POINTS:
-        - User model can be extended with authentication fields (password_hash, is_active)
-        - Flask-Login can integrate with existing User model
-        - Current route structure in app.py allows adding auth decorators
-        - Database schema can accommodate auth tables via migrations
+        FEATURE INTEGRATION POINTS:
+        - Flask app can be extended with WebSocket support via Flask-SocketIO
+        - User model ready for chat user identification and session management
+        - Database schema can accommodate chat messages via new Message model
+        - Existing template structure supports real-time UI components
+        - Static assets can include Socket.IO client library
         
-        IMPLEMENTATION RECOMMENDATIONS:
-        1. Install Flask-Login and Werkzeug for password hashing
-        2. Add authentication fields to User model (password_hash, last_login)
-        3. Create login/logout routes with form validation
-        4. Implement session management using Flask-Login's login_manager
-        5. Add @login_required decorators to protected routes
-        6. Create login/logout templates extending existing base template
+        IMPLEMENTATION PLAN:
+        1. Install Flask-SocketIO for WebSocket support
+        2. Create Message model with fields: id, user_id, content, timestamp, room_id
+        3. Create ChatRoom model for organizing conversations
+        4. Add WebSocket event handlers for: connect, disconnect, join_room, send_message
+        5. Implement message persistence with SQLAlchemy integration
+        6. Create real-time chat interface with JavaScript Socket.IO client
+        7. Add user presence tracking with online/offline status
+        8. Implement message history loading for chat rooms
         
-        POTENTIAL CONFLICTS:
-        - No conflicts detected with existing codebase structure
-        - Current User model schema needs migration for new auth fields
-        - Session configuration may need updating for security
+        DATABASE CHANGES:
+        - New tables: messages, chat_rooms, user_presence
+        - Foreign key relationships: messages.user_id -> users.id
+        - Indexes on timestamp and room_id for efficient message retrieval
+        - Migration scripts for schema updates
         
-        CODE PATTERNS FROM CODEBASE:
-        - Existing routes follow pattern: @app.route('/path', methods=['GET', 'POST'])
-        - Database models use SQLAlchemy declarative syntax
-        - Templates use Jinja2 with base template inheritance
-        - Error handling follows Flask's standard abort() pattern
+        SECURITY CONSIDERATIONS:
+        - WebSocket authentication using Flask-Login session validation
+        - Input sanitization for chat messages to prevent XSS
+        - Rate limiting for message sending to prevent spam
+        - Room-based permissions for private chat functionality
         
-        ARCHITECTURE COMPATIBILITY:
-        - Flask app factory pattern not used (simple app instance)
-        - SQLAlchemy models follow standard conventions
-        - No existing middleware that would conflict with Flask-Login
-        - Static file serving compatible with auth system
+        FRONTEND INTEGRATION:
+        - Socket.IO client integration with existing jQuery framework
+        - Real-time message display with auto-scrolling chat window
+        - Typing indicators and user presence status display
+        - Message input validation and character limits
         
-        DEPENDENCIES:
-        - Flask-Login for session management (compatible with current Flask version)
-        - Werkzeug for password hashing (already included with Flask)
-        - No breaking changes to existing dependencies required
+        TESTING STRATEGY:
+        - Unit tests for Message and ChatRoom models
+        - WebSocket event testing with test client
+        - Integration tests for message persistence
+        - Frontend testing for real-time functionality
         """
         
-        print("🚀 Testing specialist review of complete analysis...")
+        print("🚀 Testing specialist review of complete feature implementation analysis...")
         
         is_complete, feedback, confidence = task_specialist.review_analysis(
             analysis_report=complete_analysis,
@@ -181,43 +195,42 @@ class TestTaskSpecialistIntegration:
         print(f"   Confidence: {confidence:.2f}")
         print(f"   Feedback: {feedback}")
         
-        # With a thorough analysis like this, the LLM might still find areas for improvement
-        # This is actually good behavior - being thorough and security-conscious
+        # With a thorough feature implementation analysis like this, check LLM response
         if is_complete:
-            print("✅ LLM accepted the comprehensive analysis")
+            print("✅ LLM accepted the comprehensive feature implementation analysis")
             assert confidence > 0.7, f"Expected high confidence for accepted analysis, got: {confidence}"
         else:
-            print("⚠️  LLM found additional areas for improvement (thorough review)")
-            # Ensure the feedback is substantial and relevant
+            print("⚠️  LLM found additional areas for improvement in feature implementation")
+            # Ensure the feedback is substantial and relevant to feature implementation
             assert len(feedback) > 50, f"Expected detailed feedback, got: {feedback}"
             
-            # For security-sensitive tasks like authentication, it's reasonable for LLM to be strict
+            # For complex features like real-time chat, it's reasonable for LLM to be thorough
             feedback_lower = feedback.lower()
-            quality_terms = ['security', 'detail', 'specific', 'consideration', 'integration', 'implementation']
-            has_quality_focus = any(term in feedback_lower for term in quality_terms)
+            feature_terms = ['websocket', 'real-time', 'chat', 'implementation', 'security', 'testing', 'integration']
+            has_feature_focus = any(term in feedback_lower for term in feature_terms)
             
-            assert has_quality_focus, f"Expected quality-focused feedback, got: {feedback}"
+            assert has_feature_focus, f"Expected feature implementation focused feedback, got: {feedback}"
             
-            # High-quality rejection should have reasonable confidence - be more flexible
-            # Some models may be more conservative with confidence scores
+            # Quality feedback should have reasonable confidence
             assert confidence > 0.3, f"Expected reasonable confidence for quality feedback, got: {confidence}"
         
         assert len(feedback) > 20, f"Expected meaningful feedback, got: {feedback}"
-        print("✅ Test passed: Specialist provided appropriate analysis review!")
+        print("✅ Test passed: Specialist provided appropriate feature implementation review!")
     
     def test_specialist_multiple_reviews_progressive_acceptance(self, task_specialist):
-        """Test that specialist enforces maximum review limit."""
+        """Test specialist behavior with multiple review cycles for feature implementation."""
         
         task_description = """
-        Implement a simple calculator function.
+        Implement a search functionality with full-text search and filtering.
         """
         
-        # Minimal analysis that should normally be rejected
+        # Minimal analysis that should normally be rejected for feature implementation
         minimal_analysis = """
-        Found some Python files. There are functions in the code.
+        Found some Python files. There are functions that could be extended for search.
+        Search functionality can be added using basic string matching.
         """
         
-        print("🚀 Testing specialist multiple review behavior...")
+        print("🚀 Testing specialist multiple review behavior for feature implementation...")
         
         # Test progressive reviews
         for review_num in range(1, 4):
@@ -233,8 +246,7 @@ class TestTaskSpecialistIntegration:
             print(f"   Feedback: {feedback[:100]}...")
             
             if review_num < 3:
-                # First two reviews should likely reject minimal analysis
-                # (though we allow for LLM variability)
+                # First two reviews should likely reject minimal feature implementation analysis
                 print(f"   Review {review_num} decision: {'ACCEPT' if is_complete else 'REJECT'}")
             else:
                 # Third review should force accept due to max review limit
@@ -243,7 +255,7 @@ class TestTaskSpecialistIntegration:
                 assert "maximum" in feedback.lower() or "limit" in feedback.lower(), \
                     f"Expected force accept message, got: {feedback}"
         
-        print("✅ Test passed: Specialist correctly handles multiple reviews!")
+        print("✅ Test passed: Specialist correctly handles multiple reviews for feature implementation!")
     
     def test_specialist_llm_prompt_effectiveness(self, task_specialist):
         """Test that the specialist's prompts lead to consistent LLM behavior."""

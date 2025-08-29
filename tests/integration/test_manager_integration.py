@@ -1,7 +1,16 @@
 """
 Integration tests for Agent Manager.
 
-Tests the real interaction between AgentManager and actual agent implementations with real LLM calls.
+TESTING SCENARIO: NEW FEATURE IMPLEMENTATION PLANNING
+Tests the real interaction between AgentManager and actual agent implementations 
+with real LLM calls focused on planning and implementing new features.
+This includes:
+- Feature requirement analysis and planning
+- Implementation strategy development
+- Integration point identification
+- Database schema changes planning
+- API design and endpoint planning
+- Security consideration for new features
 """
 import pytest
 import tempfile
@@ -93,54 +102,65 @@ This is a basic web application with user authentication.
             pytest.skip(f"Could not configure LLM: {e}")
     
     def test_end_to_end_analysis_with_real_llm(self, config_manager_real, temp_codebase):
-        """Test complete analysis flow with real LLM calls."""
-        print("🚀 Starting end-to-end analysis with real LLM...")
+        """Test complete feature planning flow with real LLM calls."""
+        print("🚀 Starting end-to-end feature planning with real LLM...")
         print(f"📁 Test codebase: {temp_codebase}")
         
         # Create and initialize manager with real agents
         manager = AgentManager(config_manager_real)
         manager.initialize_agents()
         
-        # Execute real analysis
-        query = "analyze the current authentication system and suggest how to implement OAuth"
-        print(f"🔍 Query: {query}")
+        # Execute real feature planning analysis
+        query = "I want to add OAuth 2.0 authentication to this Flask application. Plan the complete implementation including security considerations, database changes, and integration points."
+        print(f"🔍 Feature Planning Query: {query}")
         
         result = manager.process_query_with_review_cycle(query, temp_codebase)
         
-        print(f"📊 Analysis completed!")
+        print(f"📊 Feature planning completed!")
         print(f"📋 Result length: {len(result)} chars")
         print(f"📄 Result preview: {result[:300]}...")
         
-        # Verify that we got a real response
-        assert len(result) > 100, f"Expected substantial analysis result, got {len(result)} chars"
-        assert "authentication" in result.lower()
+        # Verify that we got a real feature planning response
+        assert len(result) > 100, f"Expected substantial feature planning result, got {len(result)} chars"
+        assert "oauth" in result.lower() or "authentication" in result.lower()
         
-        # Verify structure of response
+        # Verify structure of response for feature planning
         assert "# Codebase Analysis Results" in result
         assert "## Task:" in result
         assert "## Analysis:" in result
+        
+        # Check for feature planning specific content
+        planning_terms = ['implementation', 'integration', 'security', 'database', 'plan', 'step']
+        result_lower = result.lower()
+        found_planning_terms = [term for term in planning_terms if term in result_lower]
+        assert len(found_planning_terms) >= 3, f"Expected feature planning terms, found: {found_planning_terms}"
     
     def test_review_cycle_with_real_llm(self, config_manager_real, temp_codebase):
-        """Test that review cycles work with real LLM responses."""
-        print("🔄 Testing review cycle with real LLM...")
+        """Test that review cycles work for complex feature implementation planning."""
+        print("🔄 Testing review cycle for feature implementation planning...")
         
         # Create manager
         manager = AgentManager(config_manager_real)
         manager.initialize_agents()
         
-        # Use a task that might require multiple review cycles
-        query = "create a detailed implementation plan for adding JWT-based authentication to this Flask app"
-        print(f"🔍 Query: {query}")
+        # Use a complex feature that requires detailed planning and multiple review cycles
+        query = "Add a comprehensive user profile management system with avatar upload, preferences storage, and role-based permissions. Include database schema design and API endpoints."
+        print(f"🔍 Complex Feature Query: {query}")
         
         result = manager.process_query_with_review_cycle(query, temp_codebase)
         
-        print(f"📊 Review cycle completed!")
+        print(f"📊 Feature implementation planning completed!")
         print(f"📋 Result length: {len(result)} chars")
         print(f"🔍 Contains review info: {'Specialist Review' in result or 'Note:' in result}")
         
-        # Verify comprehensive response
+        # Verify comprehensive feature planning response
         assert len(result) > 200
-        assert any(keyword in result.lower() for keyword in ["jwt", "token", "authentication", "implementation"])
+        
+        # Check for feature implementation planning terms
+        implementation_terms = ['database', 'schema', 'api', 'endpoint', 'upload', 'permission', 'role', 'profile']
+        result_lower = result.lower()
+        found_terms = [term for term in implementation_terms if term in result_lower]
+        assert len(found_terms) >= 4, f"Expected feature implementation terms, found: {found_terms}"
     
     def test_initialization_with_real_config(self, config_manager_real):
         """Test that manager can initialize with real configuration."""
@@ -160,24 +180,32 @@ This is a basic web application with user authentication.
         print("✅ Initialization successful!")
     
     def test_agent_coordination_behavior(self, config_manager_real, temp_codebase):
-        """Test that agents actually coordinate through the manager."""
-        print("🤝 Testing agent coordination behavior...")
+        """Test that agents coordinate effectively for feature implementation planning."""
+        print("🤝 Testing agent coordination for feature planning...")
         
         manager = AgentManager(config_manager_real)
         manager.initialize_agents()
         
-        # Use a simple query to focus on coordination behavior
-        query = "what files are in this project and what do they do?"
-        print(f"🔍 Simple query: {query}")
+        # Use a feature planning query that requires coordination between analysis and task specialists
+        query = "I need to add email notification functionality to this app. Analyze current structure and plan the implementation including email service integration and notification templates."
+        print(f"🔍 Feature Coordination Query: {query}")
         
         result = manager.process_query_with_review_cycle(query, temp_codebase)
         
-        print(f"📊 Coordination test completed!")
+        print(f"📊 Agent coordination test completed!")
         print(f"📋 Result length: {len(result)} chars")
         
-        # Should have analyzed the files we created
+        # Should have analyzed the existing structure and planned new feature
         assert len(result) > 50
+        
+        # Should mention existing files and feature planning elements
         assert any(filename in result for filename in ["main.py", "models.py", "README.md"])
         
         # Should have the manager's response structure
         assert "# Codebase Analysis Results" in result
+        
+        # Should contain feature planning elements
+        feature_terms = ['email', 'notification', 'service', 'template', 'integration', 'implementation']
+        result_lower = result.lower()
+        found_feature_terms = [term for term in feature_terms if term in result_lower]
+        assert len(found_feature_terms) >= 2, f"Expected feature planning coordination, found: {found_feature_terms}"
