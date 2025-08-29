@@ -206,37 +206,227 @@ uv run mypy src
 | `MODEL_TEMPERATURE` | LLM temperature (0.0-1.0) | `0.1` |
 | `MAX_TOKENS` | Maximum tokens for responses | `4000` |
 
+## Example Scenarios
+
+### 1. Implementing Authentication
+
+```bash
+# Analyze existing authentication patterns
+codebase-agent analyze "implement OAuth2 authentication for user login"
+```
+
+**Expected Analysis:**
+- Identifies existing user models and authentication middleware
+- Locates configuration files and security settings
+- Suggests integration points for OAuth2 providers
+- Provides step-by-step implementation guidance
+
+### 2. Adding API Endpoints
+
+```bash
+# Analyze for REST API development
+codebase-agent analyze "add REST API endpoints for user management"
+```
+
+**Expected Analysis:**
+- Discovers existing API routing patterns
+- Identifies database models and validation logic
+- Suggests endpoint structure following project conventions
+- Recommends appropriate HTTP status codes and response formats
+
+### 3. Database Integration
+
+```bash
+# Analyze database architecture
+codebase-agent analyze "add database migration system for user profiles"
+```
+
+**Expected Analysis:**
+- Examines existing database configuration and ORM usage
+- Identifies migration patterns and schema management
+- Suggests migration file structure and naming conventions
+- Provides guidance on data type selection and constraints
+
+### 4. Frontend Integration
+
+```bash
+# Analyze frontend-backend integration
+codebase-agent analyze "connect React frontend to authentication API"
+```
+
+**Expected Analysis:**
+- Identifies API client patterns and state management
+- Locates authentication flow components
+- Suggests integration patterns for token management
+- Provides guidance on error handling and user feedback
+
+### 5. Testing Strategy
+
+```bash
+# Analyze testing infrastructure
+codebase-agent analyze "add comprehensive tests for payment processing"
+```
+
+**Expected Analysis:**
+- Examines existing test patterns and frameworks
+- Identifies testing utilities and mock patterns
+- Suggests test coverage for business logic
+- Provides guidance on integration and unit test separation
+
 ## Troubleshooting
 
 ### Common Issues
 
-1. **API Key Issues**
-   - Verify your API key is correct and has sufficient credits
-   - Check that the base URL matches your API provider
+#### 1. API Key and Configuration Issues
 
-2. **UV Installation Issues**
-   - Ensure UV is installed and in your PATH
-   - Try using pip as alternative: `pip install -e .`
+**Problem**: "Configuration validation failed" or "API key invalid"
 
-3. **Permission Errors**
-   - Ensure the working directory is accessible
-   - Check file permissions for the codebase being analyzed
+**Solutions**:
+- Verify your API key is correct and has sufficient credits/quota
+- Check that the base URL matches your API provider exactly
+- Ensure no extra spaces or characters in your `.env` file
+- Test your API key with a simple curl command:
+  ```bash
+  curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+       -H "Content-Type: application/json" \
+       "$OPENAI_BASE_URL/models"
+  ```
 
-4. **Timeout Errors**
-   - Increase `AGENT_TIMEOUT` for large codebases
-   - Use more specific queries to reduce analysis scope
+**For OpenRouter**:
+- Use format: `sk-or-v1-...` for API keys
+- Base URL should be: `https://openrouter.ai/api/v1`
+- Check [OpenRouter documentation](https://openrouter.ai/docs) for model names
 
-### Debug Mode
+**For Local LiteLLM**:
+- Start LiteLLM proxy: `litellm --model gpt-4 --port 4000`
+- Use `http://localhost:4000` as base URL
+- API key can be any non-empty string for local usage
 
-Enable debug logging for detailed information:
+#### 2. UV and Python Environment Issues
+
+**Problem**: "UV not found" or "Python version mismatch"
+
+**Solutions**:
+- Install UV using the official installer:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+- Restart your terminal after UV installation
+- Check UV is in PATH: `uv --version`
+- Alternative installation using pip: `pip install uv`
+- For Python version issues, install correct version:
+  ```bash
+  uv python install 3.11
+  uv sync
+  ```
+
+#### 3. Permission and File Access Errors
+
+**Problem**: "Permission denied" or "Cannot access directory"
+
+**Solutions**:
+- Ensure the target directory is readable: `ls -la /path/to/codebase`
+- Run with appropriate permissions (avoid sudo unless necessary)
+- Check if directory is on a mounted drive with access restrictions
+- For network drives, ensure proper mount permissions
+- Verify the path exists and is a directory: `cd /path/to/codebase`
+
+#### 4. Analysis Timeout and Performance Issues
+
+**Problem**: "Analysis timeout" or "Taking too long"
+
+**Solutions**:
+- Increase timeout in environment variables:
+  ```bash
+  export AGENT_TIMEOUT=600  # 10 minutes
+  export MAX_SHELL_OUTPUT_SIZE=50000
+  ```
+- Use more specific queries to reduce scope:
+  - Instead of: "analyze the entire codebase"
+  - Use: "analyze authentication modules in the user management system"
+- For very large codebases (>50k files), consider:
+  - Analyzing specific subdirectories
+  - Using `.gitignore` patterns to exclude build artifacts
+  - Focusing on source code directories only
+
+#### 5. AutoGen Framework Issues
+
+**Problem**: "AutoGen initialization failed" or "Agent conversation errors"
+
+**Solutions**:
+- Update to latest AutoGen version: `uv sync`
+- Check for conflicting dependencies: `uv tree`
+- Clear Python cache: `find . -name "*.pyc" -delete`
+- Verify AutoGen installation:
+  ```python
+  python -c "import autogen; print(autogen.__version__)"
+  ```
+- For conversation flow issues, check logs in `logs/` directory
+
+#### 6. Model and Token Limit Issues
+
+**Problem**: "Token limit exceeded" or "Model not found"
+
+**Solutions**:
+- Reduce analysis scope with more specific queries
+- Use models with higher token limits (e.g., GPT-4 Turbo)
+- Check available models for your API provider:
+  ```bash
+  curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+       "$OPENAI_BASE_URL/models"
+  ```
+- Adjust token limits in environment:
+  ```bash
+  export MAX_TOKENS=8000
+  export MODEL_TEMPERATURE=0.1
+  ```
+
+### Debug Mode and Logging
+
+Enable comprehensive debug logging:
 
 ```bash
-# Environment variable
-DEBUG=true codebase-agent analyze "your query"
+# Environment variable method
+LOG_LEVEL=DEBUG codebase-agent analyze "your query"
 
-# Command line flag
+# Command line flag method
 codebase-agent --debug analyze "your query"
+
+# Save debug output to file
+codebase-agent --debug analyze "your query" 2>&1 | tee debug.log
 ```
+
+**Log File Locations**:
+- Main logs: `logs/agent.log`
+- Conversation logs: `logs/conversations/`
+- Error logs: Check stderr output
+
+**Understanding Log Output**:
+- `iteration_start`: Beginning of analysis round
+- `command_executed`: Shell command results
+- `knowledge_update`: Agent learning progression
+- `review_complete`: Task specialist feedback
+- `convergence_decision`: Analysis completion logic
+
+### Getting Help
+
+1. **Check logs first**: Enable debug mode and review log output
+2. **Verify configuration**: Run `codebase-agent setup` to validate
+3. **Test with simple query**: Try "list all Python files" to verify basic functionality
+4. **Update dependencies**: Run `uv sync` to ensure latest versions
+5. **Create minimal reproduction**: Test with a simple project structure
+
+If issues persist, create an issue with:
+- Your environment details (`uv python list`, `uv --version`)
+- Complete error messages and log output
+- Minimal example that reproduces the issue
+- Your `.env` configuration (without sensitive data)
+
+## Documentation
+
+- **[Installation Guide](docs/installation.md)**: Comprehensive installation instructions for all platforms
+- **[Example Use Cases](docs/examples.md)**: Detailed examples for common development scenarios
+- **[Troubleshooting Guide](docs/troubleshooting.md)**: Solutions for common issues and problems
 
 ## Contributing
 

@@ -9,22 +9,31 @@ description = "AutoGen-powered codebase understanding and analysis agent"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Codebase Agent Team"}
+    {name = "Codebase Agent Team", email = "ifloveyou2008@gmail.com"}
 ]
+maintainers = [
+    {name = "Codebase Agent Team", email = "ifloveyou2008@gmail.com"}
+]
+keywords = ["autogen", "codebase", "analysis", "ai", "agents", "code-understanding"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
+    "Intended Audience :: Developers", 
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.11", 
     "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
 ]
 requires-python = ">=3.10"
 dependencies = [
     "autogen-agentchat==0.7.4",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.0.0", 
     "openai>=1.0.0",
     "rich>=13.0.0",
     "autogen-ext[openai]==0.7.4",
@@ -39,15 +48,21 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
+    "twine>=4.0.0",
+    "build>=0.10.0",
+    "markdown>=3.5.0",
 ]
 
 [project.scripts]
 codebase-agent = "codebase_agent.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/your-org/codebase-agent"
-Repository = "https://github.com/your-org/codebase-agent"
-Issues = "https://github.com/your-org/codebase-agent/issues"
+Homepage = "https://github.com/wirelessr/codebase-analyzer-agent"
+Repository = "https://github.com/wirelessr/codebase-analyzer-agent.git"
+Issues = "https://github.com/wirelessr/codebase-analyzer-agent/issues"
+Documentation = "https://github.com/wirelessr/codebase-analyzer-agent#readme"
+"Source Code" = "https://github.com/wirelessr/codebase-analyzer-agent"
+"Bug Tracker" = "https://github.com/wirelessr/codebase-analyzer-agent/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/codebase_agent"]
