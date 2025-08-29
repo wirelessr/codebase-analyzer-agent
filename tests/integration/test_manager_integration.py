@@ -1,16 +1,16 @@
 """
 Integration tests for Agent Manager.
 
-TESTING SCENARIO: NEW FEATURE IMPLEMENTATION PLANNING
+TESTING SCENARIO: NEW FEATURE IMPLEMENTATION PLANNING (Go Language)
 Tests the real interaction between AgentManager and actual agent implementations
-with real LLM calls focused on planning and implementing new features.
+with real LLM calls focused on planning and implementing new features for Go web APIs.
 This includes:
-- Feature requirement analysis and planning
-- Implementation strategy development
-- Integration point identification
-- Database schema changes planning
-- API design and endpoint planning
-- Security consideration for new features
+- Go REST API feature requirement analysis and planning
+- Go microservice implementation strategy development
+- Database integration point identification for Go applications
+- Go database schema and migration planning
+- Go REST API design and endpoint planning
+- Security considerations for Go web services and concurrent programming
 """
 
 import tempfile
@@ -39,63 +39,229 @@ class TestAgentManagerIntegration:
 
     @pytest.fixture
     def temp_codebase(self):
-        """Create a temporary codebase for testing."""
+        """Create a temporary Go web API codebase for testing."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create a realistic Python project structure
+            # Create a realistic Go web API project structure
             project_path = Path(temp_dir)
 
-            # Create main.py
-            (project_path / "main.py").write_text(
-                """
-def main():
-    print("Hello, World!")
-    user = authenticate_user("test", "password")
-    if user:
-        print(f"Welcome, {user.username}!")
+            # Create go.mod
+            (project_path / "go.mod").write_text(
+                """module user-api
 
-def authenticate_user(username, password):
-    # TODO: Implement proper authentication
-    return None
+go 1.19
 
-if __name__ == "__main__":
-    main()
+require (
+    github.com/gin-gonic/gin v1.9.1
+    github.com/lib/pq v1.10.7
+    github.com/golang-jwt/jwt/v4 v4.4.3
+)
 """
             )
 
-            # Create a simple models.py
-            (project_path / "models.py").write_text(
-                """
-class User:
-    def __init__(self, username, email):
-        self.username = username
-        self.email = email
-        self.is_active = True
+            # Create main.go
+            (project_path / "main.go").write_text(
+                """package main
 
-    def save(self):
-        # TODO: Implement database save
-        pass
+import (
+    "log"
+    "user-api/internal/handlers"
+    "user-api/internal/database"
+
+    "github.com/gin-gonic/gin"
+)
+
+func main() {
+    // Initialize database
+    db, err := database.Connect()
+    if err != nil {
+        log.Fatal("Failed to connect to database:", err)
+    }
+    defer db.Close()
+
+    // Initialize Gin router
+    r := gin.Default()
+
+    // Setup routes
+    api := r.Group("/api/v1")
+    {
+        api.POST("/auth/login", handlers.Login)
+        api.POST("/auth/register", handlers.Register)
+        // TODO: Add JWT middleware for protected routes
+        api.GET("/users", handlers.GetUsers)
+        api.POST("/users", handlers.CreateUser)
+    }
+
+    log.Println("Server starting on :8080")
+    r.Run(":8080")
+}
 """
             )
 
-            # Create requirements.txt
-            (project_path / "requirements.txt").write_text(
-                "flask==2.0.1\nrequests==2.25.1\n"
+            # Create internal directory structure
+            internal_path = project_path / "internal"
+            internal_path.mkdir()
+
+            # Create models.go
+            (internal_path / "models.go").write_text(
+                """package internal
+
+import (
+    "time"
+)
+
+type User struct {
+    ID       int       `json:"id" db:"id"`
+    Username string    `json:"username" db:"username"`
+    Email    string    `json:"email" db:"email"`
+    Password string    `json:"-" db:"password_hash"`
+    IsActive bool      `json:"is_active" db:"is_active"`
+    Created  time.Time `json:"created_at" db:"created_at"`
+}
+
+type LoginRequest struct {
+    Username string `json:"username" binding:"required"`
+    Password string `json:"password" binding:"required"`
+}
+
+type RegisterRequest struct {
+    Username string `json:"username" binding:"required"`
+    Email    string `json:"email" binding:"required,email"`
+    Password string `json:"password" binding:"required,min=8"`
+}
+"""
             )
 
-            # Create a simple README
+            # Create handlers directory
+            handlers_path = internal_path / "handlers"
+            handlers_path.mkdir()
+
+            # Create auth handlers
+            (handlers_path / "auth.go").write_text(
+                """package handlers
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+)
+
+func Login(c *gin.Context) {
+    // TODO: Implement JWT authentication
+    c.JSON(http.StatusNotImplemented, gin.H{
+        "error": "Login not implemented yet",
+    })
+}
+
+func Register(c *gin.Context) {
+    // TODO: Implement user registration with password hashing
+    c.JSON(http.StatusNotImplemented, gin.H{
+        "error": "Registration not implemented yet",
+    })
+}
+"""
+            )
+
+            # Create user handlers
+            (handlers_path / "users.go").write_text(
+                """package handlers
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+)
+
+func GetUsers(c *gin.Context) {
+    // TODO: Implement user listing with pagination
+    c.JSON(http.StatusNotImplemented, gin.H{
+        "error": "User listing not implemented yet",
+    })
+}
+
+func CreateUser(c *gin.Context) {
+    // TODO: Implement user creation
+    c.JSON(http.StatusNotImplemented, gin.H{
+        "error": "User creation not implemented yet",
+    })
+}
+"""
+            )
+
+            # Create database package
+            db_path = internal_path / "database"
+            db_path.mkdir()
+
+            (db_path / "connection.go").write_text(
+                """package database
+
+import (
+    "database/sql"
+    "os"
+
+    _ "github.com/lib/pq"
+)
+
+func Connect() (*sql.DB, error) {
+    dbURL := os.Getenv("DATABASE_URL")
+    if dbURL == "" {
+        dbURL = "postgres://user:password@localhost/userdb?sslmode=disable"
+    }
+
+    db, err := sql.Open("postgres", dbURL)
+    if err != nil {
+        return nil, err
+    }
+
+    // Test the connection
+    if err := db.Ping(); err != nil {
+        return nil, err
+    }
+
+    return db, nil
+}
+"""
+            )
+
+            # Create README
             (project_path / "README.md").write_text(
-                """
-# Simple Web App
+                """# Go User API
 
-This is a basic web application with user authentication.
+A RESTful API for user management built with Go and Gin framework.
 
 ## Features
-- User management
-- Basic authentication (not implemented yet)
+- User registration and authentication
+- JWT-based authentication (planned)
+- PostgreSQL database integration
+- RESTful API endpoints
 
-## TODO
-- Implement OAuth authentication
-- Add user roles and permissions
+## Current API Endpoints
+- POST /api/v1/auth/login - User login
+- POST /api/v1/auth/register - User registration
+- GET /api/v1/users - List users
+- POST /api/v1/users - Create user
+
+## TODO Features
+- Implement JWT authentication middleware
+- Add password hashing with bcrypt
+- Implement user roles and permissions
+- Add input validation and sanitization
+- Add rate limiting
+- Add logging and monitoring
+- Implement user profile management
+- Add email verification
+- Add password reset functionality
+
+## Database Schema
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 """
             )
 
@@ -123,7 +289,7 @@ This is a basic web application with user authentication.
         manager.initialize_agents()
 
         # Execute real feature planning analysis
-        query = "I want to add OAuth 2.0 authentication to this Flask application. Plan the complete implementation including security considerations, database changes, and integration points."
+        query = "I want to add JWT-based authentication and user role management to this Go API. Plan the complete implementation including security considerations, database schema changes, middleware design, and API endpoint modifications."
         print(f"🔍 Feature Planning Query: {query}")
 
         result = manager.process_query_with_review_cycle(query, temp_codebase)
@@ -136,7 +302,11 @@ This is a basic web application with user authentication.
         assert (
             len(result) > 100
         ), f"Expected substantial feature planning result, got {len(result)} chars"
-        assert "oauth" in result.lower() or "authentication" in result.lower()
+        assert (
+            "jwt" in result.lower()
+            or "authentication" in result.lower()
+            or "middleware" in result.lower()
+        )
 
         # Verify structure of response for feature planning
         assert "# Codebase Analysis Results" in result
@@ -167,7 +337,7 @@ This is a basic web application with user authentication.
         manager.initialize_agents()
 
         # Use a complex feature that requires detailed planning and multiple review cycles
-        query = "Add a comprehensive user profile management system with avatar upload, preferences storage, and role-based permissions. Include database schema design and API endpoints."
+        query = "Add a comprehensive user profile management system with avatar upload, user preferences storage, and role-based access control (RBAC) to this Go API. Include database schema design, file upload handling with Go, middleware for authorization, and RESTful API endpoints."
         print(f"🔍 Complex Feature Query: {query}")
 
         result = manager.process_query_with_review_cycle(query, temp_codebase)
@@ -188,9 +358,11 @@ This is a basic web application with user authentication.
             "api",
             "endpoint",
             "upload",
-            "permission",
-            "role",
+            "middleware",
+            "rbac",
+            "authorization",
             "profile",
+            "gin",
         ]
         result_lower = result.lower()
         found_terms = [term for term in implementation_terms if term in result_lower]
@@ -223,7 +395,7 @@ This is a basic web application with user authentication.
         manager.initialize_agents()
 
         # Use a feature planning query that requires coordination between analysis and task specialists
-        query = "I need to add email notification functionality to this app. Analyze current structure and plan the implementation including email service integration and notification templates."
+        query = "I need to add email notification functionality to this Go API. Analyze current structure and plan the implementation including SMTP service integration, notification templates with Go's template package, and asynchronous job processing for email sending."
         print(f"🔍 Feature Coordination Query: {query}")
 
         result = manager.process_query_with_review_cycle(query, temp_codebase)
@@ -236,7 +408,8 @@ This is a basic web application with user authentication.
 
         # Should mention existing files and feature planning elements
         assert any(
-            filename in result for filename in ["main.py", "models.py", "README.md"]
+            filename in result
+            for filename in ["main.go", "go.mod", "README.md", "handlers", "models.go"]
         )
 
         # Should have the manager's response structure
@@ -246,10 +419,12 @@ This is a basic web application with user authentication.
         feature_terms = [
             "email",
             "notification",
-            "service",
+            "smtp",
             "template",
+            "goroutine",
             "integration",
             "implementation",
+            "async",
         ]
         result_lower = result.lower()
         found_feature_terms = [term for term in feature_terms if term in result_lower]

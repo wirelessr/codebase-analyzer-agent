@@ -1,18 +1,22 @@
 """
 Integration tests for Code Analyzer Agent LLM and Prompt Effectiveness.
 
-TESTING SCENARIO: DEBUGGING AND ERROR ANALYSIS
+TESTING SCENARIO: DEBUGGING AND ERROR ANALYSIS (Go Language)
 Tests the actual LLM integration and prompt effectiveness for debugging:
-- Bug identification and error detection with real LLM calls
-- Exception handling analysis and recommendations
-- Code stability and robustness assessment
-- Error recovery mechanism evaluation
+- Bug identification and error detection with real LLM calls in Go code
+- Exception handling analysis and error handling patterns in Go
+- Code stability and robustness assessment in Go applications
+- Memory safety and concurrency error evaluation
 - Multi-round debugging analysis convergence
-- Debugging-focused prompt validation and response quality
+- Debugging-focused prompt validation and response quality for Go language
 """
 
 import os
+import sys
 import tempfile
+
+# Add the parent directory to the path to import our modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
@@ -48,103 +52,279 @@ class TestCodeAnalyzerLLMIntegration:
 
     @pytest.fixture
     def temp_codebase(self):
-        """Create a temporary codebase with bugs for debugging testing."""
+        """Create a temporary Go codebase with bugs for debugging testing."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create a simple Python project structure with common bugs
-            os.makedirs(os.path.join(temp_dir, "src"))
-            os.makedirs(os.path.join(temp_dir, "tests"))
+            # Create a Go project structure with common bugs
+            os.makedirs(os.path.join(temp_dir, "cmd"))
+            os.makedirs(os.path.join(temp_dir, "internal"))
+            os.makedirs(os.path.join(temp_dir, "pkg"))
 
-            # Create Python files with deliberate bugs
-            with open(os.path.join(temp_dir, "src", "main.py"), "w") as f:
+            # Create go.mod
+            with open(os.path.join(temp_dir, "go.mod"), "w") as f:
                 f.write(
-                    """
-def calculate_average(numbers):
-    # Bug: Division by zero when empty list
-    return sum(numbers) / len(numbers)
+                    """module buggy-go-app
 
-def process_user_data(user_data):
-    # Bug: KeyError when required field missing
-    name = user_data['name']
-    email = user_data['email']
-    age = user_data['age']
+go 1.19
 
-    # Bug: String concatenation with integer
-    return "User: " + name + ", Age: " + age
-
-def find_user_by_id(users, user_id):
-    # Bug: Returns None without handling, causes AttributeError later
-    for user in users:
-        if user['id'] == user_id:
-            return user
-    return None
-
-def main():
-    # Bug: Hardcoded values that may cause errors
-    data = [1, 2, 3, 0]  # Zero might cause issues in some calculations
-    result = calculate_average([])  # Empty list will cause division by zero
-    print(f"Average: {result}")
-
-    # Bug: Missing error handling
-    user_data = {"name": "John"}  # Missing required fields
-    processed = process_user_data(user_data)
-    print(processed)
-
-if __name__ == "__main__":
-    main()
+require (
+    github.com/gorilla/mux v1.8.0
+    github.com/lib/pq v1.10.7
+)
 """
                 )
 
-            with open(os.path.join(temp_dir, "tests", "test_main.py"), "w") as f:
+            # Create main.go with deliberate bugs
+            with open(os.path.join(temp_dir, "cmd", "main.go"), "w") as f:
                 f.write(
-                    """
-import unittest
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.main import calculate_average, process_user_data, find_user_by_id
+                    """package main
 
-class TestMain(unittest.TestCase):
-    def test_calculate_average(self):
-        # This test will fail due to division by zero
-        result = calculate_average([])
-        self.assertEqual(result, 0)
+import (
+    "database/sql"
+    "fmt"
+    "log"
+    "net/http"
+    "os"
+    "strconv"
 
-    def test_process_user_data_missing_fields(self):
-        # This test will fail due to KeyError
-        incomplete_data = {"name": "John"}
-        result = process_user_data(incomplete_data)
-        self.assertIsNotNone(result)
+    "github.com/gorilla/mux"
+    _ "github.com/lib/pq"
+)
 
-    def test_find_user_by_id_none_result(self):
-        users = [{"id": 1, "name": "Alice"}]
-        result = find_user_by_id(users, 999)
-        # This might cause AttributeError if result is used without checking
-        self.assertIsNone(result)
+// Bug: Global variable without protection for concurrent access
+var userCount int
 
-if __name__ == '__main__':
-    unittest.main()
+type User struct {
+    ID   int    `json:"id"`
+    Name string `json:"name"`
+    Age  int    `json:"age"`
+}
+
+// Bug: No error handling for database connection
+func connectDB() *sql.DB {
+    dbURL := os.Getenv("DATABASE_URL")
+    if dbURL == "" {
+        dbURL = "postgres://user:password@localhost/dbname?sslmode=disable"
+    }
+
+    db, err := sql.Open("postgres", dbURL)
+    if err != nil {
+        // Bug: Using log.Fatal in library code instead of returning error
+        log.Fatal(err)
+    }
+
+    // Bug: Not checking if connection is actually working
+    return db
+}
+
+// Bug: SQL injection vulnerability
+func getUserByID(db *sql.DB, userID string) (*User, error) {
+    query := fmt.Sprintf("SELECT id, name, age FROM users WHERE id = %s", userID)
+
+    var user User
+    err := db.QueryRow(query).Scan(&user.ID, &user.Name, &user.Age)
+    if err != nil {
+        return nil, err
+    }
+
+    return &user, nil
+}
+
+// Bug: Race condition - concurrent access to global variable
+func incrementUserCount() {
+    userCount++
+}
+
+// Bug: Not handling conversion errors properly
+func handleGetUser(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    userIDStr := vars["id"]
+
+    // Bug: Ignoring conversion error
+    userID, _ := strconv.Atoi(userIDStr)
+
+    db := connectDB()
+    // Bug: Not closing database connection
+
+    user, err := getUserByID(db, strconv.Itoa(userID))
+    if err != nil {
+        // Bug: Exposing internal error details to client
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    incrementUserCount()
+
+    // Bug: Not setting content type
+    fmt.Fprintf(w, `{"id": %d, "name": "%s", "age": %d}`, user.ID, user.Name, user.Age)
+}
+
+// Bug: No graceful shutdown handling
+func main() {
+    r := mux.NewRouter()
+    r.HandleFunc("/users/{id}", handleGetUser).Methods("GET")
+
+    fmt.Println("Server starting on :8080")
+
+    // Bug: Not handling server startup errors
+    http.ListenAndServe(":8080", r)
+}
 """
                 )
 
+            # Create a utility file with more bugs
+            with open(os.path.join(temp_dir, "internal", "utils.go"), "w") as f:
+                f.write(
+                    """package internal
+
+import (
+    "encoding/json"
+    "io"
+    "time"
+)
+
+// Bug: Potential memory leak - slice growing indefinitely
+var requestLog []string
+
+// Bug: Not handling JSON unmarshal errors properly
+func ParseUserRequest(body io.Reader) (map[string]interface{}, error) {
+    var result map[string]interface{}
+
+    // Bug: No limit on body size - potential DoS
+    bodyBytes, _ := io.ReadAll(body)
+
+    err := json.Unmarshal(bodyBytes, &result)
+    if err != nil {
+        // Bug: Returning nil map with error - inconsistent state
+        return nil, err
+    }
+
+    // Bug: Adding to slice without bounds checking
+    requestLog = append(requestLog, string(bodyBytes))
+
+    return result, nil
+}
+
+// Bug: Goroutine leak - channel never closed
+func StartBackgroundWorker() {
+    ch := make(chan string)
+
+    go func() {
+        for msg := range ch {
+            // Bug: No timeout on processing
+            processMessage(msg)
+        }
+    }()
+
+    // Bug: Channel never gets any data, goroutine blocks forever
+}
+
+func processMessage(msg string) {
+    // Bug: Infinite loop potential
+    for {
+        if len(msg) > 0 {
+            break
+        }
+        // Bug: No sleep, will consume CPU
+    }
+
+    // Bug: Panic not recovered
+    if msg == "panic" {
+        panic("Intentional panic")
+    }
+}
+
+// Bug: Time-based race condition
+func GetCurrentTimestamp() string {
+    now := time.Now()
+"""
+                )
+
+            # Create a test file with expected bugs
+            with open(os.path.join(temp_dir, "pkg", "models.go"), "w") as f:
+                f.write(
+                    """package pkg
+
+import (
+    "database/sql"
+    "fmt"
+)
+
+type UserService struct {
+    db *sql.DB
+}
+
+// Bug: Method receiver not using pointer, won't persist changes
+func (u UserService) SetDB(database *sql.DB) {
+    u.db = database
+}
+
+// Bug: Not validating input parameters
+func (u *UserService) CreateUser(name string, age int) (int, error) {
+    // Bug: SQL injection vulnerability
+    query := fmt.Sprintf("INSERT INTO users (name, age) VALUES ('%s', %d)", name, age)
+
+    result, err := u.db.Exec(query)
+    if err != nil {
+        return 0, err
+    }
+
+    // Bug: Not checking if LastInsertId is supported
+    id, _ := result.LastInsertId()
+    return int(id), nil
+}
+
+// Bug: Resource leak - not closing rows
+func (u *UserService) GetAllUsers() ([]User, error) {
+    rows, err := u.db.Query("SELECT id, name, age FROM users")
+    if err != nil {
+        return nil, err
+    }
+
+    var users []User
+    for rows.Next() {
+        var user User
+        err := rows.Scan(&user.ID, &user.Name, &user.Age)
+        if err != nil {
+            // Bug: Continuing loop despite error
+            continue
+        }
+        users = append(users, user)
+    }
+
+    return users, nil
+}
+"""
+                )
+
+            # Create README with project description
             with open(os.path.join(temp_dir, "README.md"), "w") as f:
                 f.write(
-                    """
-# Test Project with Bugs
+                    """# Buggy Go Application
 
-This is a simple test project that contains several common programming bugs for debugging analysis.
+This is a simple Go web API project that contains several common programming bugs for debugging analysis.
 
 ## Known Issues
-- Division by zero errors
-- Missing error handling
-- Type mismatch errors
-- KeyError exceptions
-- None handling issues
 
-## Features
-- Basic Python application with calculation functions
-- User data processing
-- User lookup functionality
-- Unit tests (some failing)
+The codebase intentionally contains various types of bugs:
+- SQL injection vulnerabilities
+- Race conditions and concurrent access issues
+- Resource leaks (database connections, goroutines)
+- Missing error handling
+- Memory leaks
+- Potential DoS vulnerabilities
+- Type conversion errors
+- Time formatting issues
+
+## Dependencies
+
+- github.com/gorilla/mux - HTTP router
+- github.com/lib/pq - PostgreSQL driver
+
+## Structure
+
+- cmd/main.go - Main application entry point
+- internal/utils.go - Utility functions
+- pkg/models.go - Data models and services
 """
                 )
 
@@ -153,7 +333,7 @@ This is a simple test project that contains several common programming bugs for 
     def test_basic_analysis_prompt_effectiveness(self, analyzer, temp_codebase):
         """Test debugging analysis prompt with real LLM."""
         query = (
-            "分析這個Python專案中的潛在錯誤和異常處理問題，找出可能導致程式崩潰的bug"
+            "分析這個Go專案中的潛在錯誤和安全漏洞，找出可能導致程式崩潰或資料洩露的bug"
         )
 
         result = analyzer.analyze_codebase(query, temp_codebase)
@@ -165,13 +345,15 @@ This is a simple test project that contains several common programming bugs for 
         # Check for debugging-related analysis elements
         debugging_keywords = [
             "error",
-            "exception",
             "bug",
-            "division",
-            "keyerror",
-            "none",
+            "nil pointer",
+            "race condition",
+            "sql injection",
+            "resource leak",
+            "goroutine",
+            "vulnerability",
             "錯誤",
-            "異常",
+            "漏洞",
             "除錯",
         ]
         result_lower = result.lower()
@@ -184,7 +366,7 @@ This is a simple test project that contains several common programming bugs for 
 
     def test_analysis_convergence_prompt(self, analyzer, temp_codebase):
         """Test that debugging analysis prompts lead to convergence on error identification."""
-        query = "完整除錯分析：找出這個專案中所有的錯誤處理缺陷和潛在的執行時錯誤"
+        query = "完整除錯分析：找出這個Go專案中所有的安全漏洞、並發問題和資源洩露問題"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -203,13 +385,15 @@ This is a simple test project that contains several common programming bugs for 
 
         # Check for error identification
         error_terms = [
-            "division by zero",
-            "keyerror",
-            "error handling",
-            "exception",
-            "none handling",
+            "sql injection",
+            "nil pointer",
+            "race condition",
+            "resource leak",
+            "goroutine leak",
+            "vulnerability",
             "錯誤處理",
-            "異常",
+            "安全漏洞",
+            "並發問題",
         ]
         result_lower = result.lower()
         found_error_terms = [term for term in error_terms if term in result_lower]
@@ -219,7 +403,7 @@ This is a simple test project that contains several common programming bugs for 
 
     def test_prompt_chinese_language_support(self, analyzer, temp_codebase):
         """Test that debugging prompts work effectively in Chinese."""
-        query = "評估這個專案的程式碼穩定性，找出容易造成程式當機的問題點"
+        query = "評估這個Go專案的程式碼安全性和穩定性，找出容易造成資料洩露或程式崩潰的問題點"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -260,17 +444,19 @@ This is a simple test project that contains several common programming bugs for 
 
         # Should reflect the specialist feedback focus on debugging and error recovery
         debugging_keywords = [
-            "error handling",
-            "recovery",
-            "debugging",
-            "exception",
+            "sql injection",
+            "race condition",
+            "nil pointer",
+            "goroutine",
+            "resource leak",
+            "vulnerability",
             "錯誤處理",
-            "恢復",
-            "除錯",
+            "安全漏洞",
+            "並發問題",
             "error",
-            "exception handling",
-            "fault tolerance",
-            "resilience",
+            "concurrency",
+            "memory safety",
+            "security",
             "robustness",
         ]
         result_lower = result.lower()
@@ -291,7 +477,7 @@ This is a simple test project that contains several common programming bugs for 
 
     def test_multi_round_prompt_consistency(self, analyzer, temp_codebase):
         """Test that multi-round debugging prompts maintain consistency."""
-        query = "深入分析這個專案的錯誤處理機制和異常安全性設計"
+        query = "深入分析這個Go專案的錯誤處理機制、並發安全性和資源管理設計"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -302,13 +488,15 @@ This is a simple test project that contains several common programming bugs for 
         # Should contain consistent debugging and error handling analysis
         debugging_keywords = [
             "error",
-            "exception",
-            "handling",
+            "concurrency",
+            "goroutine",
+            "nil pointer",
+            "resource",
             "safety",
             "錯誤",
-            "異常",
-            "處理",
+            "並發",
             "安全",
+            "資源",
         ]
         result_lower = result.lower()
         found_keywords = [

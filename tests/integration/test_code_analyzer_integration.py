@@ -1,14 +1,14 @@
 """
 Integration test for Code Analyzer with real LLM and tool calls.
 
-TESTING SCENARIO: ARCHITECTURE ANALYSIS
+TESTING SCENARIO: ARCHITECTURE ANALYSIS (Python Project)
 This test focuses on analyzing codebase architecture and system structure
 using real LLM interaction and shell tool execution. It verifies that
 the Code Analyzer can effectively understand and describe:
-- Project structure and organization
-- Component relationships and dependencies
-- Module architecture and design patterns
-- System-level design decisions
+- Project structure and organization (Python package patterns)
+- Component relationships and dependencies (import chains, modules)
+- Module architecture and design patterns (classes, functions)
+- System-level design decisions (configuration, security patterns)
 """
 
 import os
@@ -83,182 +83,169 @@ class TestCodeAnalyzerIntegration:
 
     @pytest.fixture
     def test_codebase(self):
-        """Create a comprehensive test codebase to verify smart analysis strategies."""
+        """Create a comprehensive Python test codebase to verify smart analysis strategies."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            project_dir = Path(temp_dir) / "test_project"
+            project_dir = Path(temp_dir) / "python_project"
             project_dir.mkdir()
 
-            # Create main.py - entry point (medium size)
+            # Create main.py - entry point
             (project_dir / "main.py").write_text(
                 '''#!/usr/bin/env python3
 """Main application entry point."""
 
 import sys
-import os
+import logging
 from pathlib import Path
-from typing import Optional
-
-# Add project root to Python path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
 
 from utils import DataProcessor, format_output
 from config.settings import Settings
 from auth.security import AuthManager
 
+
+def setup_logging():
+    """Configure application logging."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('app.log'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+
 def main():
     """Main application function."""
-    print("Starting application...")
-
-    # Initialize configuration
-    settings = Settings()
-
-    # Initialize security
-    auth_manager = AuthManager(settings.secret_key)
-
-    # Initialize data processor
-    processor = DataProcessor(settings.processing_mode)
-
-    # Run application logic
     try:
-        data = get_user_input()
-        processed_data = processor.process(data)
-        formatted_output = format_output(processed_data)
+        setup_logging()
+        logger = logging.getLogger(__name__)
 
-        if auth_manager.validate_output(formatted_output):
-            print(f"Result: {formatted_output}")
+        logger.info("Starting application")
+
+        # Load configuration
+        settings = Settings()
+
+        # Initialize security
+        auth_manager = AuthManager(settings.secret_key)
+
+        # Process data
+        processor = DataProcessor(mode=settings.processing_mode)
+
+        # Example workflow
+        sample_data = ["test", "data", "processing"]
+        processed = processor.process_batch(sample_data)
+
+        # Format and validate output
+        output = format_output(processed, settings.output_format)
+
+        if auth_manager.validate_output(output):
+            logger.info("Processing completed successfully")
+            print(output)
         else:
-            print("Output validation failed")
+            logger.error("Output validation failed")
+            return 1
 
     except Exception as e:
-        print(f"Application error: {e}")
+        logger.error(f"Application error: {e}")
         return 1
 
     return 0
 
-def get_user_input() -> str:
-    """Get input from user."""
-    return input("Enter data to process: ")
-
-def hello_world():
-    """Print greeting - legacy function."""
-    print("Hello, World!")
-
-def calculate_sum(a: int, b: int) -> int:
-    """Calculate sum of two numbers."""
-    return a + b
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    sys.exit(main())
 '''
             )
 
-            # Create utils.py - utility functions (medium size)
+            # Create utils.py - data processing utilities
             (project_dir / "utils.py").write_text(
-                '''"""Utility functions and classes."""
+                '''"""Utility functions for data processing."""
 
-import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass
+import json
+import hashlib
+from typing import List, Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
-
-class ProcessingMode(Enum):
-    """Processing mode enumeration."""
-    SIMPLE = "simple"
-    ADVANCED = "advanced"
-    BATCH = "batch"
-
-@dataclass
-class ProcessingConfig:
-    """Configuration for data processing."""
-    mode: ProcessingMode
-    timeout: int = 30
-    retry_count: int = 3
-    debug: bool = False
 
 class DataProcessor:
-    """Process data with configurable modes."""
+    """Handle different types of data processing."""
 
-    def __init__(self, mode: ProcessingMode = ProcessingMode.SIMPLE):
+    def __init__(self, mode: str = "simple"):
         """Initialize processor with mode."""
         self.mode = mode
-        self.config = ProcessingConfig(mode=mode)
-        logger.info(f"DataProcessor initialized with mode: {mode}")
+        self.cache = {}
 
-    def process(self, data: Any) -> str:
-        """Process data based on configured mode."""
-        try:
-            if self.mode == ProcessingMode.SIMPLE:
-                return self._simple_process(data)
-            elif self.mode == ProcessingMode.ADVANCED:
-                return self._advanced_process(data)
-            elif self.mode == ProcessingMode.BATCH:
-                return self._batch_process(data)
-            else:
-                raise ValueError(f"Unknown processing mode: {self.mode}")
-        except Exception as e:
-            logger.error(f"Processing failed: {e}")
-            raise
+    def process_simple(self, data: Any) -> Any:
+        """Simple data processing."""
+        if isinstance(data, str):
+            return data.strip().lower()
+        elif isinstance(data, list):
+            return [self.process_simple(item) for item in data]
+        return data
 
-    def _simple_process(self, data: Any) -> str:
-        """Simple processing - just convert to uppercase."""
-        return str(data).upper()
+    def process_advanced(self, data: Any) -> Any:
+        """Advanced data processing with caching."""
+        data_hash = hashlib.md5(str(data).encode()).hexdigest()
 
-    def _advanced_process(self, data: Any) -> str:
-        """Advanced processing with validation."""
-        if not data:
-            raise ValueError("Data cannot be empty")
+        if data_hash in self.cache:
+            return self.cache[data_hash]
 
-        processed = str(data).upper().strip()
+        result = self.process_simple(data)
 
-        # Additional validation
-        if len(processed) > 1000:
-            logger.warning("Data exceeds recommended length")
+        # Additional processing for advanced mode
+        if isinstance(result, str):
+            result = result.replace(' ', '_')
 
-        return processed
+        self.cache[data_hash] = result
+        return result
 
-    def _batch_process(self, data: Any) -> str:
-        """Batch processing for multiple items."""
-        if isinstance(data, (list, tuple)):
-            results = [self._simple_process(item) for item in data]
-            return " | ".join(results)
+    def process_batch(self, data_list: List[Any]) -> List[Any]:
+        """Process a batch of data items."""
+        if self.mode == "simple":
+            return [self.process_simple(item) for item in data_list]
+        elif self.mode == "advanced":
+            return [self.process_advanced(item) for item in data_list]
         else:
-            return self._simple_process(data)
+            raise ValueError(f"Unknown processing mode: {self.mode}")
 
-    def get_stats(self) -> Dict[str, Any]:
-        """Get processing statistics."""
+    def get_cache_stats(self) -> Dict[str, int]:
+        """Get cache statistics."""
         return {
-            "mode": self.mode.value,
-            "config": self.config,
-            "processed_count": getattr(self, '_processed_count', 0)
+            "cache_size": len(self.cache),
+            "total_entries": len(self.cache)
         }
 
-def format_output(value: Any, prefix: str = "[", suffix: str = "]") -> str:
-    """Format output with configurable brackets."""
-    return f"{prefix}{value}{suffix}"
 
-def validate_input(data: Any) -> bool:
-    """Validate input data."""
-    if data is None:
-        return False
-    if isinstance(data, str) and not data.strip():
-        return False
+def format_output(data: Any, output_format: str = "json") -> str:
+    """Format data for output."""
+    if output_format == "json":
+        return json.dumps(data, indent=2)
+    elif output_format == "text":
+        if isinstance(data, list):
+            return "\\n".join(str(item) for item in data)
+        return str(data)
+    else:
+        raise ValueError(f"Unsupported output format: {output_format}")
+
+
+def calculate_checksum(data: str) -> str:
+    """Calculate MD5 checksum of data."""
+    return hashlib.md5(data.encode()).hexdigest()
+
+
+class ValidationError(Exception):
+    """Custom exception for validation errors."""
+    pass
+
+
+def validate_input(data: Any, required_type: type) -> bool:
+    """Validate input data type."""
+    if not isinstance(data, required_type):
+        raise ValidationError(f"Expected {required_type.__name__}, got {type(data).__name__}")
     return True
-
-# Legacy function for backward compatibility
-def legacy_formatter(value):
-    """Legacy formatting function - deprecated."""
-    import warnings
-    warnings.warn("legacy_formatter is deprecated, use format_output instead",
-                  DeprecationWarning, stacklevel=2)
-    return format_output(value)
 '''
             )
 
-            # Create config directory and settings
+            # Create config directory
             config_dir = project_dir / "config"
             config_dir.mkdir()
 
@@ -268,36 +255,63 @@ def legacy_formatter(value):
                 '''"""Application settings and configuration."""
 
 import os
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Optional
-from utils import ProcessingMode
 
+
+@dataclass
 class Settings:
-    """Application settings manager."""
+    """Application settings."""
+
+    secret_key: str
+    processing_mode: str
+    output_format: str
+    debug: bool
 
     def __init__(self):
         """Initialize settings from environment."""
         self.secret_key = os.getenv("SECRET_KEY", "default-secret-key")
+        self.processing_mode = os.getenv("PROCESSING_MODE", "simple")
+        self.output_format = os.getenv("OUTPUT_FORMAT", "json")
         self.debug = os.getenv("DEBUG", "false").lower() == "true"
-        self.processing_mode = self._get_processing_mode()
-        self.data_dir = Path(os.getenv("DATA_DIR", "./data"))
-        self.log_level = os.getenv("LOG_LEVEL", "INFO")
-
-    def _get_processing_mode(self) -> ProcessingMode:
-        """Get processing mode from environment."""
-        mode_str = os.getenv("PROCESSING_MODE", "simple").lower()
-        try:
-            return ProcessingMode(mode_str)
-        except ValueError:
-            return ProcessingMode.SIMPLE
 
     def validate(self) -> bool:
         """Validate settings."""
         if len(self.secret_key) < 8:
-            return False
-        if not self.data_dir.exists():
-            self.data_dir.mkdir(parents=True, exist_ok=True)
+            raise ValueError("Secret key must be at least 8 characters")
+
+        if self.processing_mode not in ["simple", "advanced", "batch"]:
+            raise ValueError(f"Invalid processing mode: {self.processing_mode}")
+
+        if self.output_format not in ["json", "text"]:
+            raise ValueError(f"Invalid output format: {self.output_format}")
+
         return True
+
+    def to_dict(self) -> dict:
+        """Convert settings to dictionary."""
+        return {
+            "secret_key": "***",  # Don't expose secret key
+            "processing_mode": self.processing_mode,
+            "output_format": self.output_format,
+            "debug": self.debug
+        }
+
+
+class DatabaseConfig:
+    """Database configuration."""
+
+    def __init__(self):
+        self.host = os.getenv("DB_HOST", "localhost")
+        self.port = int(os.getenv("DB_PORT", "5432"))
+        self.database = os.getenv("DB_NAME", "myapp")
+        self.username = os.getenv("DB_USER", "user")
+        self.password = os.getenv("DB_PASSWORD", "password")
+
+    @property
+    def connection_string(self) -> str:
+        """Get database connection string."""
+        return f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
 '''
             )
 
@@ -553,64 +567,30 @@ mypy>=1.0.0
         print("🚀 Testing file size adaptive strategy...")
         result = analyzer.analyze_codebase(query, test_codebase)
 
-        print(f"🔧 Commands executed: {tracking_tool.calls}")
-        print(f"📄 Result preview: {result[:200]}...")
+        commands = tracking_tool.calls
+        print(f"📋 Commands executed for adaptive strategy ({len(commands)}):")
+        for i, cmd in enumerate(commands, 1):
+            print(f"  {i}. {cmd}")
 
-        if len(tracking_tool.calls) > 0:
-            commands_str = " ".join(tracking_tool.calls)
+        # Verify adaptive file reading strategies (more flexible approach)
+        has_file_analysis = any(
+            any(cmd_part in cmd for cmd_part in ["wc -l", "file ", "stat ", "ls -l"])
+            for cmd in commands
+        )
+        assert has_file_analysis, f"Expected file analysis commands, got: {commands}"
 
-            # Should check file size before reading strategy
-            has_size_check = any(
-                cmd in commands_str for cmd in ["wc -l", "wc", "ls -l"]
-            )
-            if has_size_check:
-                print("✅ Found file size checking commands")
+        has_content_reading = any(
+            "cat" in cmd or "head" in cmd or "tail" in cmd for cmd in commands
+        )
+        assert (
+            has_content_reading
+        ), f"Expected content reading commands, got: {commands}"
 
-            # Should use structure mapping for medium/large files
-            has_structure_mapping = "grep -n" in commands_str
-            if has_structure_mapping:
-                print("✅ Found structure mapping commands")
+        # Verify Python code understanding
+        assert (
+            "function" in result.lower()
+            or "class" in result.lower()
+            or "def" in result.lower()
+        ), "Expected Python code understanding"
 
-            # Should reference utils.py specifically
-            has_utils_reference = "utils.py" in commands_str
-            if has_utils_reference:
-                print("✅ Found specific utils.py analysis")
-
-            # Should find at least some understanding of functions/methods
-            result_lower = result.lower()
-
-            # Check for general function/method analysis
-            has_function_analysis = any(
-                term in result_lower
-                for term in [
-                    "function",
-                    "method",
-                    "def ",
-                    "class",
-                    "dataprocessor",
-                    "format_output",
-                    "utils",
-                ]
-            )
-
-            if has_function_analysis:
-                print("✅ Found function/method analysis in result")
-            else:
-                print(
-                    f"⚠️  Limited function analysis. Result content: {result_lower[:300]}"
-                )
-
-            # At least basic analysis should be present
-            basic_analysis = has_utils_reference or has_function_analysis
-            assert (
-                basic_analysis
-            ), f"Expected some level of utils.py analysis, got: {result[:300]}..."
-
-            print(
-                "✅ Test passed: File size adaptive strategy shows basic functionality!"
-            )
-
-        else:
-            pytest.fail(
-                "File size adaptive strategy should have executed exploration commands"
-            )
+        print("✅ File size adaptive strategy test completed!")
