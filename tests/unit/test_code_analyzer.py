@@ -56,7 +56,7 @@ class TestCodeAnalyzer:
         results = analyzer._execute_shell_commands(commands)
 
         assert len(results) == 2
-        assert results[0]["success"] == True
+        assert results[0]["success"]
         assert results[0]["stdout"] == "file1.py\nfile2.py"
         assert results[1]["stdout"] == "/test/project"
 
@@ -70,7 +70,7 @@ class TestCodeAnalyzer:
         results = analyzer._execute_shell_commands(commands)
 
         assert len(results) == 1
-        assert results[0]["success"] == False
+        assert not results[0]["success"]
         assert results[0]["error"] == "Test exception"
 
     def test_assess_convergence_from_json_high_confidence(self, analyzer):
@@ -87,9 +87,9 @@ class TestCodeAnalyzer:
 
         convergence = analyzer._assess_convergence_from_json(llm_decision, context)
 
-        assert convergence["confidence_threshold_met"] == True  # confidence >= 8
-        assert convergence["question_answered"] == True  # need_shell_execution is False
-        assert convergence["sufficient_code_coverage"] == True  # len(context) >= 2
+        assert convergence["confidence_threshold_met"]  # confidence >= 8
+        assert convergence["question_answered"]  # need_shell_execution is False
+        assert convergence["sufficient_code_coverage"]  # len(context) >= 2
 
     def test_assess_convergence_from_json_low_confidence(self, analyzer):
         """Test convergence assessment with low confidence JSON response."""
@@ -102,10 +102,10 @@ class TestCodeAnalyzer:
 
         convergence = analyzer._assess_convergence_from_json(llm_decision, context)
 
-        assert convergence["confidence_threshold_met"] == False  # confidence < 8
-        assert convergence["question_answered"] == False  # need_shell_execution is True
+        assert not convergence["confidence_threshold_met"]  # confidence < 8
+        assert not convergence["question_answered"]  # need_shell_execution is True
         assert (
-            convergence["sufficient_code_coverage"] == False
+            not convergence["sufficient_code_coverage"]
         )  # len(context) < 2 and total_commands < 3
 
     def test_system_message_contains_knowledge_base_guidance(self, analyzer):
@@ -151,7 +151,7 @@ class TestCodeAnalyzer:
             "sufficient_code_coverage": True,
         }
 
-        assert analyzer._should_terminate(convergence) == True
+        assert analyzer._should_terminate(convergence)
 
     def test_should_terminate_false(self, analyzer):
         """Test termination condition when criteria are not met."""
@@ -161,7 +161,7 @@ class TestCodeAnalyzer:
             "sufficient_code_coverage": True,
         }
 
-        assert analyzer._should_terminate(convergence) == False
+        assert not analyzer._should_terminate(convergence)
 
     def test_synthesize_final_response(self, analyzer):
         """Test final response synthesis."""

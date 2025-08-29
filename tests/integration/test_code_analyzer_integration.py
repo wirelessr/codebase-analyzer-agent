@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
 class DataProcessor:
     """Process data."""
-    
+
     def process(self, data):
         return data.upper()
 

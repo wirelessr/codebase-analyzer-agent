@@ -200,7 +200,7 @@ class ShellTool:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
-                raise ShellTimeoutError(command, self.timeout_seconds)
+                raise ShellTimeoutError(command, self.timeout_seconds) from None
 
             # Limit output size to prevent memory issues
             if len(stdout) > self.max_output_size:

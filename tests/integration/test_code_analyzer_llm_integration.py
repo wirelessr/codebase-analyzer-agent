@@ -67,7 +67,7 @@ def process_user_data(user_data):
     name = user_data['name']
     email = user_data['email']
     age = user_data['age']
-    
+
     # Bug: String concatenation with integer
     return "User: " + name + ", Age: " + age
 
@@ -83,7 +83,7 @@ def main():
     data = [1, 2, 3, 0]  # Zero might cause issues in some calculations
     result = calculate_average([])  # Empty list will cause division by zero
     print(f"Average: {result}")
-    
+
     # Bug: Missing error handling
     user_data = {"name": "John"}  # Missing required fields
     processed = process_user_data(user_data)
@@ -108,13 +108,13 @@ class TestMain(unittest.TestCase):
         # This test will fail due to division by zero
         result = calculate_average([])
         self.assertEqual(result, 0)
-    
+
     def test_process_user_data_missing_fields(self):
         # This test will fail due to KeyError
         incomplete_data = {"name": "John"}
         result = process_user_data(incomplete_data)
         self.assertIsNotNone(result)
-    
+
     def test_find_user_by_id_none_result(self):
         users = [{"id": 1, "name": "Alice"}]
         result = find_user_by_id(users, 999)
@@ -135,7 +135,7 @@ This is a simple test project that contains several common programming bugs for 
 
 ## Known Issues
 - Division by zero errors
-- Missing error handling  
+- Missing error handling
 - Type mismatch errors
 - KeyError exceptions
 - None handling issues

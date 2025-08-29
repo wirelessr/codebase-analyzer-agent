@@ -113,7 +113,7 @@ class ConfigurationManager:
             logger.debug(f"Configuration loaded with {len(self._config)} variables")
 
         except Exception as e:
-            raise ConfigurationError(f"Failed to load environment configuration: {e}")
+            raise ConfigurationError(f"Failed to load environment configuration: {e}") from e
 
     def validate_configuration(self) -> list[str]:
         """Validate required configuration values.
@@ -184,7 +184,7 @@ class ConfigurationManager:
                 timeout=int(self._config.get("REQUEST_TIMEOUT", "60")),
             )
         except (ValueError, KeyError) as e:
-            raise ConfigurationError(f"Failed to create LLM configuration: {e}")
+            raise ConfigurationError(f"Failed to create LLM configuration: {e}") from e
 
     def get_autogen_config(self) -> dict[str, Any]:
         """Get configuration dictionary for AutoGen agents.

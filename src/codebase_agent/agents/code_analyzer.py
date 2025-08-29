@@ -156,16 +156,16 @@ When you have enough information to provide a comprehensive answer, set need_she
             )
 
             # Execute analysis step with agent (LLM decision phase)
-            def run_step():
+            def run_step(prompt):
                 import asyncio
 
                 async def async_step():
-                    result = await self.agent.run(task=iteration_prompt)
+                    result = await self.agent.run(task=prompt)
                     return result
 
                 return asyncio.run(async_step())
 
-            step_response = run_step()
+            step_response = run_step(iteration_prompt)
 
             # Extract text from TaskResult object
             response_text = self._extract_response_text(step_response)
@@ -325,37 +325,37 @@ When you have enough information to provide a comprehensive answer, set need_she
 
         base_prompt = f"""
         CODEBASE ANALYSIS - ITERATION {iteration}
-        
+
         Target: {codebase_path}
         User Query: {query}
-        
+
         ULTIMATE GOAL: Create a comprehensive, detailed report that thoroughly addresses the user's query.
         Your final deliverable should be a well-structured analysis that provides actionable insights and complete answers.
-        
+
         ANALYSIS STRATEGY GUIDANCE:
         You are encouraged to follow a progressive analysis approach, but you have full autonomy to decide your exploration strategy based on the specific query and context:
-        
+
         🎯 SUGGESTED PROGRESSION (adapt as needed):
         1. TARGETED EXPLORATION: Start with specific, query-related areas (find relevant files, grep keywords)
-        2. CONTEXTUAL EXPANSION: Explore related files, dependencies, configurations around your findings  
+        2. CONTEXTUAL EXPANSION: Explore related files, dependencies, configurations around your findings
         3. DEEPER ANALYSIS: Read actual code content, understand implementation details and algorithms
         4. COMPREHENSIVE COVERAGE: Fill gaps, check alternatives, verify understanding
         5. VALIDATION & SYNTHESIS: Double-check findings, resolve inconsistencies, provide final analysis
-        
+
         💡 STRATEGIC CONSIDERATIONS:
         - For simple queries: You might jump directly to targeted searches and provide quick answers
         - For complex queries: Follow the full progression to ensure comprehensive coverage
         - For architectural questions: Focus on structure, relationships, and high-level patterns
         - For implementation questions: Dive deep into specific code logic and details
-        
+
         🔧 RECOMMENDED SHELL COMMANDS:
         - Exploration: ls, find, tree (understand structure)
         - Search: grep -r, grep -n (find specific content)
         - Content: cat, head, tail (read file contents)
         - Analysis: wc, file, stat (get file information)
-        
+
         Remember: You must respond in valid JSON format with the exact structure specified in your system message.
-        
+
         """
 
         # Add specialist feedback if provided
@@ -363,11 +363,11 @@ When you have enough information to provide a comprehensive answer, set need_she
             base_prompt += f"""
         🎯 TASK SPECIALIST FEEDBACK - PRIORITY FOCUS AREAS:
         {specialist_feedback}
-        
-        IMPORTANT: Address the above feedback areas as your primary focus. The Task Specialist has identified 
-        these as critical gaps in the previous analysis. Make sure to specifically target these areas in your 
+
+        IMPORTANT: Address the above feedback areas as your primary focus. The Task Specialist has identified
+        these as critical gaps in the previous analysis. Make sure to specifically target these areas in your
         exploration strategy.
-        
+
         """
 
         # Add shared knowledge base (collaborative key findings)
@@ -411,28 +411,28 @@ When you have enough information to provide a comprehensive answer, set need_she
 
         # Add current iteration context and convergence status
         base_prompt += f"""
-        
+
         📈 CURRENT ANALYSIS STATUS:
         - Iteration: {iteration}/10
         - Code coverage sufficient: {convergence['sufficient_code_coverage']}
         - Question answered: {convergence['question_answered']}
         - Confidence threshold met: {convergence['confidence_threshold_met']}
-        
+
         🎯 DECISION POINTS FOR THIS ITERATION:
         Based on the shared knowledge base and your analysis so far, decide:
         1. Do you need more information via shell commands? (set need_shell_execution: true/false)
         2. What specific commands would help you gather the missing information?
         3. What is your current confidence level (1-10) in providing a comprehensive answer?
         4. If confidence >= 8, consider providing your final comprehensive analysis
-        
+
         ⚠️ CRITICAL: Update the "key_findings" list:
         - ADD new important discoveries from this iteration
         - UPDATE or REFINE existing findings with new insights
         - REMOVE findings that are no longer relevant or incorrect
         - Keep findings concise but informative (1-2 sentences each)
-        
+
         This shared knowledge base is the collective memory of all iterations.
-        
+
         RESPONSE FORMAT: You MUST respond in valid JSON format with these exact fields:
         {{
             "need_shell_execution": true/false,
@@ -467,12 +467,12 @@ When you have enough information to provide a comprehensive answer, set need_she
         # Create comprehensive synthesis
         synthesis = f"""
         CODEBASE ANALYSIS COMPLETE
-        
+
         Query: {query}
         Iterations: {len(context)}
         Final Confidence Level: {final_confidence}/10
         Convergence Status: {convergence}
-        
+
         KEY FINDINGS (Collaborative Knowledge Base):
         """
 
@@ -484,10 +484,10 @@ When you have enough information to provide a comprehensive answer, set need_she
             synthesis += "No key findings recorded.\n"
 
         synthesis += f"""
-        
+
         FINAL ANALYSIS:
         {final_analysis}
-        
+
         EXECUTION SUMMARY:
         """
 

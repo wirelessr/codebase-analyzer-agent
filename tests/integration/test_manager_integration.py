@@ -70,7 +70,7 @@ class User:
         self.username = username
         self.email = email
         self.is_active = True
-    
+
     def save(self):
         # TODO: Implement database save
         pass

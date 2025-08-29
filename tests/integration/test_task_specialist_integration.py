@@ -65,7 +65,7 @@ class TestTaskSpecialistIntegration:
             ), f"Expected boolean, got {type(is_complete)}"
             assert isinstance(feedback, str), f"Expected string, got {type(feedback)}"
             assert isinstance(
-                confidence, (int, float)
+                confidence, int | float
             ), f"Expected number, got {type(confidence)}"
             assert len(feedback) > 0, "Expected non-empty feedback"
 
@@ -73,7 +73,7 @@ class TestTaskSpecialistIntegration:
 
         except Exception as e:
             print(f"❌ Basic functionality test failed: {e}")
-            assert False, f"Basic functionality failed: {e}"
+            raise AssertionError(f"Basic functionality failed: {e}") from e
 
     def test_specialist_reviews_incomplete_analysis(self, task_specialist):
         """Test specialist review of incomplete feature implementation analysis."""
@@ -90,7 +90,7 @@ class TestTaskSpecialistIntegration:
         - app.py (main Flask application)
         - models.py (contains User model)
         - templates/ (HTML templates)
-        
+
         The app.py file imports Flask and creates an app instance.
         There are some routes defined but no API endpoints yet.
         """
@@ -156,14 +156,14 @@ class TestTaskSpecialistIntegration:
         - Database configuration present using SQLite with migration support
         - Templates directory with Jinja2 template structure and base layout
         - Static assets folder for CSS/JS with existing jQuery integration
-        
+
         FEATURE INTEGRATION POINTS:
         - Flask app can be extended with WebSocket support via Flask-SocketIO
         - User model ready for chat user identification and session management
         - Database schema can accommodate chat messages via new Message model
         - Existing template structure supports real-time UI components
         - Static assets can include Socket.IO client library
-        
+
         IMPLEMENTATION PLAN:
         1. Install Flask-SocketIO for WebSocket support
         2. Create Message model with fields: id, user_id, content, timestamp, room_id
@@ -173,25 +173,25 @@ class TestTaskSpecialistIntegration:
         6. Create real-time chat interface with JavaScript Socket.IO client
         7. Add user presence tracking with online/offline status
         8. Implement message history loading for chat rooms
-        
+
         DATABASE CHANGES:
         - New tables: messages, chat_rooms, user_presence
         - Foreign key relationships: messages.user_id -> users.id
         - Indexes on timestamp and room_id for efficient message retrieval
         - Migration scripts for schema updates
-        
+
         SECURITY CONSIDERATIONS:
         - WebSocket authentication using Flask-Login session validation
         - Input sanitization for chat messages to prevent XSS
         - Rate limiting for message sending to prevent spam
         - Room-based permissions for private chat functionality
-        
+
         FRONTEND INTEGRATION:
         - Socket.IO client integration with existing jQuery framework
         - Real-time message display with auto-scrolling chat window
         - Typing indicators and user presence status display
         - Message input validation and character limits
-        
+
         TESTING STRATEGY:
         - Unit tests for Message and ChatRoom models
         - WebSocket event testing with test client
@@ -326,11 +326,11 @@ class TestTaskSpecialistIntegration:
                 - Found Flask app with routing structure in app.py
                 - User model exists with proper SQLAlchemy setup
                 - JSON serialization methods present in models
-                
+
                 INTEGRATION POINTS:
                 - Can extend existing route patterns for API endpoints
                 - User model ready for CRUD operations
-                
+
                 IMPLEMENTATION STEPS:
                 1. Add API blueprint for user routes
                 2. Implement GET /users, POST /users, PUT /users/<id>, DELETE /users/<id>
@@ -338,12 +338,12 @@ class TestTaskSpecialistIntegration:
                 4. Include proper HTTP status codes and error handling
                 5. Add request validation and authentication middleware
                 6. Document API endpoints with proper error responses
-                
+
                 SECURITY CONSIDERATIONS:
                 - Input validation for all endpoints
                 - Authentication/authorization for protected routes
                 - Rate limiting considerations
-                
+
                 PATTERNS FROM CODEBASE:
                 - Routes use @app.route decorator pattern
                 - Database queries follow SQLAlchemy ORM patterns

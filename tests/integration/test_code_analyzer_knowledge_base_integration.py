@@ -87,17 +87,17 @@ class User:
     created_at: datetime
     is_active: bool = True
     profile_data: Optional[dict] = None
-    
+
     def validate_email(self) -> bool:
         \"\"\"Validate email format using regex.\"\"\"
         import re
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
         return bool(re.match(pattern, self.email))
-    
+
     def activate(self):
         \"\"\"Activate user account.\"\"\"
         self.is_active = True
-    
+
     def deactivate(self):
         \"\"\"Deactivate user account.\"\"\"
         self.is_active = False
@@ -115,18 +115,18 @@ from src.utils.logger import Logger
 
 class UserService:
     \"\"\"Service layer for user operations with business logic.\"\"\"
-    
+
     def __init__(self, db_connection: DatabaseConnection, logger: Logger):
         self.db = db_connection
         self.logger = logger
-    
+
     async def create_user(self, username: str, email: str) -> User:
         \"\"\"Create a new user with validation.\"\"\"
         # Business logic: check if username exists
         existing_user = await self.get_user_by_username(username)
         if existing_user:
             raise ValueError(f"Username {username} already exists")
-        
+
         # Create user
         user = User(
             id=await self.db.get_next_id(),
@@ -134,21 +134,21 @@ class UserService:
             email=email,
             created_at=datetime.now()
         )
-        
+
         # Validate
         if not user.validate_email():
             raise ValueError("Invalid email format")
-        
+
         # Save to database
         await self.db.save_user(user)
         self.logger.info(f"Created user: {username}")
-        
+
         return user
-    
+
     async def get_user_by_username(self, username: str) -> Optional[User]:
         \"\"\"Retrieve user by username.\"\"\"
         return await self.db.find_user_by_username(username)
-    
+
     async def list_active_users(self) -> List[User]:
         \"\"\"Get all active users.\"\"\"
         users = await self.db.get_all_users()
@@ -188,7 +188,7 @@ async def create_user(
         user = await user_service.create_user(request.username, request.email)
         return UserResponse(
             id=user.id,
-            username=user.username, 
+            username=user.username,
             email=user.email,
             is_active=user.is_active
         )
@@ -203,7 +203,7 @@ async def list_users(user_service: UserService = Depends(get_user_service)):
         UserResponse(
             id=user.id,
             username=user.username,
-            email=user.email, 
+            email=user.email,
             is_active=user.is_active
         ) for user in users
     ]
@@ -220,21 +220,21 @@ from src.models.user import User
 
 class DatabaseConnection:
     \"\"\"Database connection and operations.\"\"\"
-    
+
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
         self.pool = None
-    
+
     async def connect(self):
         \"\"\"Establish database connection pool.\"\"\"
         self.pool = await asyncpg.create_pool(self.connection_string)
-    
+
     async def get_next_id(self) -> int:
         \"\"\"Get next available user ID.\"\"\"
         async with self.pool.acquire() as conn:
             result = await conn.fetchval("SELECT MAX(id) FROM users")
             return (result or 0) + 1
-    
+
     async def save_user(self, user: User) -> None:
         \"\"\"Save user to database.\"\"\"
         async with self.pool.acquire() as conn:
@@ -254,24 +254,24 @@ from typing import Optional
 
 class Settings(BaseSettings):
     \"\"\"Application settings with environment variables.\"\"\"
-    
+
     # Database settings
     database_url: str = "postgresql://localhost/testdb"
     database_pool_size: int = 10
-    
-    # API settings  
+
+    # API settings
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     debug_mode: bool = False
-    
+
     # Security settings
     secret_key: str
     jwt_expiration_hours: int = 24
-    
+
     # Logging settings
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = False
@@ -293,7 +293,7 @@ from src.models.user import User
 
 class TestUserModel:
     \"\"\"Unit tests for User model.\"\"\"
-    
+
     def test_user_creation(self):
         user = User(
             id=1,
@@ -304,15 +304,15 @@ class TestUserModel:
         assert user.id == 1
         assert user.username == "testuser"
         assert user.is_active is True
-    
+
     def test_email_validation_valid(self):
         user = User(1, "test", "valid@email.com", datetime.now())
         assert user.validate_email() is True
-    
+
     def test_email_validation_invalid(self):
         user = User(1, "test", "invalid-email", datetime.now())
         assert user.validate_email() is False
-    
+
     def test_user_activation(self):
         user = User(1, "test", "test@example.com", datetime.now())
         user.deactivate()
