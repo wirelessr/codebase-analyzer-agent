@@ -164,24 +164,6 @@ class TestShellTool:
         with pytest.raises(ShellTimeoutError, match="timed out after"):
             self.shell_tool.execute_command("sleep 60")
 
-    def test_execution_statistics(self):
-        """Test execution statistics tracking."""
-        # Reset stats
-        self.shell_tool.reset_stats()
-
-        # Execute some commands
-        self.shell_tool.execute_command("ls")
-        self.shell_tool.execute_command("cat test_file.txt")
-        self.shell_tool.execute_command("cat nonexistent.txt")  # This will fail
-
-        stats = self.shell_tool.get_execution_stats()
-
-        assert stats["total_commands"] == 3
-        assert stats["successful_commands"] == 2
-        assert stats["failed_commands"] == 1
-        assert stats["success_rate"] == 2 / 3
-        assert stats["average_execution_time"] > 0
-
     def test_working_directory_validation(self):
         """Test working directory validation."""
         issues = self.shell_tool.validate_working_directory()

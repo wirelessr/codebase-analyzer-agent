@@ -7,9 +7,7 @@ constraints, working directory restrictions, timeouts, and comprehensive logging
 import logging
 import os
 import subprocess
-import time
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +73,6 @@ class ShellTool:
                 f"Working directory is not a directory: {self.working_directory}"
             )
 
-        # Track execution statistics
-        self.execution_stats = {
-            "total_commands": 0,
-            "successful_commands": 0,
-            "failed_commands": 0,
-            "timed_out_commands": 0,
-            "total_execution_time": 0.0,
-        }
-
         if self.enable_logging:
             logger.info(
                 f"ShellTool initialized: working_dir={self.working_directory}, "
@@ -104,9 +93,6 @@ class ShellTool:
             ShellTimeoutError: If command execution times out
             ValueError: If command is invalid
         """
-        start_time = time.time()
-        self.execution_stats["total_commands"] += 1
-
         try:
             # Validate and log command
             self._validate_command(command)
@@ -115,37 +101,11 @@ class ShellTool:
                 logger.info(f"Executing command: {command}")
 
             # Execute command with constraints
-            result = self._run_command_with_constraints(command)
-            success, stdout, stderr = result
-
-            # Update statistics
-            execution_time = time.time() - start_time
-            self.execution_stats["total_execution_time"] += execution_time
-
-            if success:
-                self.execution_stats["successful_commands"] += 1
-                if self.enable_logging:
-                    logger.info(
-                        f"Command completed successfully in {execution_time:.2f}s: "
-                        f"output_size={len(stdout)}, stderr_size={len(stderr)}"
-                    )
-            else:
-                self.execution_stats["failed_commands"] += 1
-                if self.enable_logging:
-                    logger.warning(
-                        f"Command failed in {execution_time:.2f}s: "
-                        f"stderr={stderr[:200]}..."
-                    )
-
-            return result
+            return self._run_command_with_constraints(command)
 
         except ShellTimeoutError:
-            self.execution_stats["timed_out_commands"] += 1
             raise
         except Exception as e:
-            self.execution_stats["failed_commands"] += 1
-            execution_time = time.time() - start_time
-            self.execution_stats["total_execution_time"] += execution_time
             if self.enable_logging:
                 logger.error(f"Command execution error: {e}")
             raise
@@ -233,40 +193,6 @@ class ShellTool:
         except OSError as e:
             # Other OS-level errors
             return False, "", f"OS error: {str(e)}"
-
-    def get_execution_stats(self) -> dict[str, Any]:
-        """Get execution statistics for monitoring and debugging.
-
-        Returns:
-            Dictionary containing execution statistics
-        """
-        stats = self.execution_stats.copy()
-        if stats["total_commands"] > 0:
-            stats["success_rate"] = (
-                stats["successful_commands"] / stats["total_commands"]
-            )
-            stats["average_execution_time"] = (
-                stats["total_execution_time"] / stats["total_commands"]
-            )
-        else:
-            stats["success_rate"] = 0.0
-            stats["average_execution_time"] = 0.0
-
-        return stats
-
-    def reset_stats(self) -> None:
-        """Reset execution statistics."""
-        self.execution_stats = {
-            "total_commands": 0,
-            "successful_commands": 0,
-            "failed_commands": 0,
-            "timed_out_commands": 0,
-            "forbidden_commands": 0,
-            "total_execution_time": 0.0,
-        }
-
-        if self.enable_logging:
-            logger.info("Execution statistics reset")
 
     @property
     def is_working_directory_accessible(self) -> bool:
