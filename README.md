@@ -55,6 +55,9 @@ pip install -e .
 For development:
 ```bash
 uv sync --extra dev
+
+# Optional: Install type checking tools
+uv sync --extra typing
 ```
 
 ### 3. Configure Environment
@@ -80,11 +83,14 @@ uv sync --extra dev
 ### 4. Verify Setup
 
 ```bash
-# Check configuration and dependencies
-codebase-agent setup
+# Check configuration and dependencies (requires codebase path)
+codebase-agent setup .
 
 # Or if using uv:
-uv run codebase-agent setup
+uv run codebase-agent setup .
+
+# Test API connectivity
+uv run codebase-agent setup . --check-api
 ```
 
 ## Usage
@@ -95,26 +101,35 @@ Analyze your codebase for specific tasks:
 
 ```bash
 # Analyze for authentication implementation
-codebase-agent analyze "implement OAuth user authentication"
+codebase-agent analyze . "implement OAuth user authentication"
 
 # Analyze for payment processing
-codebase-agent analyze "add payment processing with Stripe"
+codebase-agent analyze . "add payment processing with Stripe"
 
 # General codebase overview
-codebase-agent analyze "understand the project structure and main components"
+codebase-agent analyze . "understand the project structure and main components"
+
+# Or if using uv:
+uv run codebase-agent analyze . "implement OAuth user authentication"
 ```
 
 ### Advanced Usage
 
 ```bash
-# Specify working directory
-codebase-agent analyze "implement user authentication" --directory /path/to/project
+# Specify different codebase path
+codebase-agent analyze /path/to/project "implement user authentication"
+
+# Specify working directory (different from codebase path)
+codebase-agent analyze ./my-project "add database migration system" --working-dir /tmp/workspace
 
 # Enable debug logging
-codebase-agent --debug analyze "add database migration system"
+codebase-agent --verbose analyze . "add database migration system"
 
 # Use different model
-OPENAI_MODEL=gpt-3.5-turbo codebase-agent analyze "optimize database queries"
+OPENAI_MODEL=gpt-3.5-turbo codebase-agent analyze . "optimize database queries"
+
+# JSON output format
+codebase-agent analyze . "analyze authentication patterns" --output-format json
 ```
 
 ## How It Works
@@ -179,7 +194,13 @@ uv run pytest
 uv run pytest --cov=codebase_agent --cov-report=html
 
 # Run specific test file
-uv run pytest tests/test_configuration.py
+uv run pytest tests/unit/test_configuration.py
+
+# Run integration tests only
+uv run pytest -m integration
+
+# Run unit tests only
+uv run pytest -m unit
 ```
 
 ### Code Quality
@@ -191,9 +212,23 @@ uv run black codebase_agent tests
 # Lint code
 uv run ruff check codebase_agent tests
 
-# Type checking
+# Fix linting issues automatically
+uv run ruff check --fix codebase_agent tests
+```
+
+#### Optional Type Checking
+
+Type checking with mypy is configured but not currently enforced in CI:
+
+```bash
+# Install type checking dependencies
+uv sync --extra typing
+
+# Run type checking (will show type annotation gaps)
 uv run mypy codebase_agent
 ```
+
+> **Note**: The codebase currently has incomplete type annotations. Type checking is available for development but not required for contributions.
 
 ## Configuration Options
 
@@ -214,7 +249,7 @@ uv run mypy codebase_agent
 
 ```bash
 # Analyze existing authentication patterns
-codebase-agent analyze "implement OAuth2 authentication for user login"
+codebase-agent analyze . "implement OAuth2 authentication for user login"
 ```
 
 **Expected Analysis:**
@@ -227,7 +262,7 @@ codebase-agent analyze "implement OAuth2 authentication for user login"
 
 ```bash
 # Analyze for REST API development
-codebase-agent analyze "add REST API endpoints for user management"
+codebase-agent analyze . "add REST API endpoints for user management"
 ```
 
 **Expected Analysis:**
@@ -240,7 +275,7 @@ codebase-agent analyze "add REST API endpoints for user management"
 
 ```bash
 # Analyze database architecture
-codebase-agent analyze "add database migration system for user profiles"
+codebase-agent analyze . "add database migration system for user profiles"
 ```
 
 **Expected Analysis:**
@@ -253,7 +288,7 @@ codebase-agent analyze "add database migration system for user profiles"
 
 ```bash
 # Analyze frontend-backend integration
-codebase-agent analyze "connect React frontend to authentication API"
+codebase-agent analyze . "connect React frontend to authentication API"
 ```
 
 **Expected Analysis:**
@@ -266,7 +301,7 @@ codebase-agent analyze "connect React frontend to authentication API"
 
 ```bash
 # Analyze testing infrastructure
-codebase-agent analyze "add comprehensive tests for payment processing"
+codebase-agent analyze . "add comprehensive tests for payment processing"
 ```
 
 **Expected Analysis:**
@@ -389,13 +424,13 @@ Enable comprehensive debug logging:
 
 ```bash
 # Environment variable method
-LOG_LEVEL=DEBUG codebase-agent analyze "your query"
+LOG_LEVEL=DEBUG codebase-agent analyze . "your query"
 
 # Command line flag method
-codebase-agent --debug analyze "your query"
+codebase-agent --verbose analyze . "your query"
 
 # Save debug output to file
-codebase-agent --debug analyze "your query" 2>&1 | tee debug.log
+codebase-agent --verbose analyze . "your query" 2>&1 | tee debug.log
 ```
 
 **Log File Locations**:
@@ -413,8 +448,8 @@ codebase-agent --debug analyze "your query" 2>&1 | tee debug.log
 ### Getting Help
 
 1. **Check logs first**: Enable debug mode and review log output
-2. **Verify configuration**: Run `codebase-agent setup` to validate
-3. **Test with simple query**: Try "list all Python files" to verify basic functionality
+2. **Verify configuration**: Run `codebase-agent setup .` to validate
+3. **Test with simple query**: Try `codebase-agent analyze . "list all Python files"` to verify basic functionality
 4. **Update dependencies**: Run `uv sync` to ensure latest versions
 5. **Create minimal reproduction**: Test with a simple project structure
 

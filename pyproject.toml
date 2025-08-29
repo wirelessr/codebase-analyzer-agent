@@ -44,12 +44,17 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.21.0",
-    "black==25.1.0",
+    "black>=25.1.0",
     "ruff>=0.12.0",
     "pre-commit>=3.0.0",
     "twine>=4.0.0",
     "build>=0.10.0",
     "markdown>=3.5.0",
+]
+
+# Optional mypy dependency for type checking (not enforced in CI)
+typing = [
+    "mypy>=1.17.1",
 ]
 
 [project.scripts]
@@ -148,15 +153,4 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
-]
-
-[dependency-groups]
-dev = [
-    "black>=25.1.0",
-    "mypy>=1.17.1",
-    "pre-commit>=4.3.0",
-    "pytest>=8.4.1",
-    "pytest-asyncio>=1.1.0",
-    "pytest-cov>=6.2.1",
-    "ruff>=0.12.10",
 ]

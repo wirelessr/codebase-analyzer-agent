@@ -312,26 +312,19 @@ dev = [
     { name = "ruff" },
     { name = "twine" },
 ]
-
-[package.dev-dependencies]
-dev = [
-    { name = "black" },
+typing = [
     { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "autogen-agentchat", specifier = "==0.7.4" },
     { name = "autogen-ext", extras = ["openai"], specifier = "==0.7.4" },
-    { name = "black", marker = "extra == 'dev'", specifier = "==25.1.0" },
+    { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=0.10.0" },
     { name = "click", specifier = ">=8.1.0" },
     { name = "markdown", marker = "extra == 'dev'", specifier = ">=3.5.0" },
+    { name = "mypy", marker = "extra == 'typing'", specifier = ">=1.17.1" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
@@ -343,18 +336,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
 ]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "black", specifier = ">=25.1.0" },
-    { name = "mypy", specifier = ">=1.17.1" },
-    { name = "pre-commit", specifier = ">=4.3.0" },
-    { name = "pytest", specifier = ">=8.4.1" },
-    { name = "pytest-asyncio", specifier = ">=1.1.0" },
-    { name = "pytest-cov", specifier = ">=6.2.1" },
-    { name = "ruff", specifier = ">=0.12.10" },
-]
+provides-extras = ["dev", "typing"]
 
 [[package]]
 name = "colorama"
