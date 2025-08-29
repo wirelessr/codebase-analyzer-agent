@@ -178,15 +178,15 @@ class StructuredLogger:
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         
-        # File handler
+        # File handler - captures all INFO and above
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.INFO)
         
-        # Console handler
+        # Console handler - only shows ERROR and above
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.ERROR)
         
         # Configure root logger
         logger = logging.getLogger()
@@ -417,18 +417,29 @@ def get_structured_logger(logs_dir: str = "logs") -> StructuredLogger:
     return _structured_logger
 
 
-def setup_logging(log_level: str = "INFO", logs_dir: str = "logs") -> None:
-    """Set up enhanced logging configuration."""
-    # Convert string level to logging constant
-    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+def setup_logging(log_level: str = "INFO", logs_dir: str = "logs", console_level: str = "ERROR") -> None:
+    """Set up enhanced logging configuration.
+    
+    Args:
+        log_level: Log level for file output (default: INFO)
+        logs_dir: Directory for log files (default: logs)
+        console_level: Log level for console output (default: ERROR)
+    """
+    # Convert string levels to logging constants
+    file_numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+    console_numeric_level = getattr(logging, console_level.upper(), logging.ERROR)
     
     # Initialize structured logger (this will set up standard logging too)
     logger = get_structured_logger(logs_dir)
     
-    # Update log level for existing handlers
+    # Update log levels for existing handlers
     root_logger = logging.getLogger()
-    root_logger.setLevel(numeric_level)
-    for handler in root_logger.handlers:
-        handler.setLevel(numeric_level)
+    root_logger.setLevel(logging.INFO)  # Root logger should capture everything
     
-    logging.info(f"Enhanced logging initialized with level {log_level}")
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            handler.setLevel(file_numeric_level)
+        elif isinstance(handler, logging.StreamHandler):
+            handler.setLevel(console_numeric_level)
+    
+    logging.info(f"Enhanced logging initialized - File: {log_level}, Console: {console_level}")

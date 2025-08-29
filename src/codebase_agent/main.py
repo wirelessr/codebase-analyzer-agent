@@ -29,18 +29,27 @@ logger = logging.getLogger(__name__)
 @click.group()
 @click.option('--log-level', default='INFO', 
               type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']),
-              help='Set the logging level')
+              help='Set the file logging level')
+@click.option('--console-level', default='ERROR',
+              type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']),
+              help='Set the console logging level (default: ERROR)')
 @click.option('--logs-dir', default='logs', type=click.Path(),
               help='Logs directory path (default: logs)')
-def cli(log_level: str, logs_dir: str):
+@click.option('--verbose', '-v', is_flag=True,
+              help='Show INFO level logs in console (equivalent to --console-level INFO)')
+def cli(log_level: str, console_level: str, logs_dir: str, verbose: bool):
     """AutoGen Codebase Understanding Agent CLI.
     
     An intelligent agent system that analyzes codebases using multi-agent
     collaboration and provides targeted insights for development tasks.
     """
+    # Adjust console level if verbose flag is used
+    if verbose:
+        console_level = 'INFO'
+    
     # Setup logging
     try:
-        setup_logging(log_level, logs_dir)
+        setup_logging(log_level, logs_dir, console_level)
         logger.info("AutoGen Codebase Agent CLI started")
     except Exception as e:
         console.print(f"[red]Error setting up logging: {e}[/red]")
