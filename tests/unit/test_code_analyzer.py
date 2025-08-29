@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.codebase_agent.agents.code_analyzer import CodeAnalyzer
+from codebase_agent.agents.code_analyzer import CodeAnalyzer
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def analyzer():
     mock_config = {"config_list": [{"model": "gpt-4"}]}
 
     with patch(
-        "src.codebase_agent.agents.code_analyzer.AssistantAgent"
+        "codebase_agent.agents.code_analyzer.AssistantAgent"
     ) as mock_agent_class:
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent

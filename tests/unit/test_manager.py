@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.codebase_agent.agents.manager import AgentManager
-from src.codebase_agent.config.configuration import ConfigurationManager
+from codebase_agent.agents.manager import AgentManager
+from codebase_agent.config.configuration import ConfigurationManager
 
 
 class TestAgentManager:
@@ -40,9 +40,9 @@ class TestAgentManager:
         assert manager.code_analyzer is None
         assert manager.task_specialist is None
 
-    @patch("src.codebase_agent.agents.manager.ShellTool")
-    @patch("src.codebase_agent.agents.manager.CodeAnalyzer")
-    @patch("src.codebase_agent.agents.manager.TaskSpecialist")
+    @patch("codebase_agent.agents.manager.ShellTool")
+    @patch("codebase_agent.agents.manager.CodeAnalyzer")
+    @patch("codebase_agent.agents.manager.TaskSpecialist")
     def test_initialize_agents_success(
         self,
         mock_task_specialist_class,
@@ -74,8 +74,8 @@ class TestAgentManager:
         )
         mock_task_specialist_class.assert_called_once_with(expected_model_client)
 
-    @patch("src.codebase_agent.agents.manager.ShellTool")
-    @patch("src.codebase_agent.agents.manager.CodeAnalyzer")
+    @patch("codebase_agent.agents.manager.ShellTool")
+    @patch("codebase_agent.agents.manager.CodeAnalyzer")
     def test_initialize_agents_failure(
         self, mock_code_analyzer_class, mock_shell_tool_class, agent_manager
     ):
@@ -248,9 +248,9 @@ class TestAgentManager:
         assert "maximum number of review cycles" in result
         assert "Still missing some details" in result
 
-    @patch("src.codebase_agent.agents.manager.ShellTool")
-    @patch("src.codebase_agent.agents.manager.CodeAnalyzer")
-    @patch("src.codebase_agent.agents.manager.TaskSpecialist")
+    @patch("codebase_agent.agents.manager.ShellTool")
+    @patch("codebase_agent.agents.manager.CodeAnalyzer")
+    @patch("codebase_agent.agents.manager.TaskSpecialist")
     def test_full_review_cycle_mocked(
         self,
         mock_task_specialist_class,

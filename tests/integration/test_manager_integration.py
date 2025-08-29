@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from src.codebase_agent.agents.manager import AgentManager
-from src.codebase_agent.config.configuration import ConfigurationManager
+from codebase_agent.agents.manager import AgentManager
+from codebase_agent.config.configuration import ConfigurationManager
 
 
 class TestAgentManagerIntegration:

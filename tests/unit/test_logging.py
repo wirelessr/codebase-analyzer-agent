@@ -469,7 +469,7 @@ class TestGlobalLogger(TestCase):
 
         shutil.rmtree(self.temp_dir)
         # Reset global logger
-        import src.codebase_agent.utils.logging as logging_module
+        import codebase_agent.utils.logging as logging_module
 
         logging_module._structured_logger = None
 

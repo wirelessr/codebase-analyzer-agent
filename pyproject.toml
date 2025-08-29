@@ -64,7 +64,7 @@ Documentation = "https://github.com/wirelessr/codebase-analyzer-agent#readme"
 "Bug Tracker" = "https://github.com/wirelessr/codebase-analyzer-agent/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codebase_agent"]
+packages = ["codebase_agent"]
 
 [tool.black]
 line-length = 88
@@ -122,7 +122,7 @@ warn_unused_ignores = true
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -133,7 +133,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["."]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
