@@ -152,7 +152,9 @@ This is a simple test project that contains several common programming bugs for 
 
     def test_basic_analysis_prompt_effectiveness(self, analyzer, temp_codebase):
         """Test debugging analysis prompt with real LLM."""
-        query = "分析這個Python專案中的潛在錯誤和異常處理問題，找出可能導致程式崩潰的bug"
+        query = (
+            "分析這個Python專案中的潛在錯誤和異常處理問題，找出可能導致程式崩潰的bug"
+        )
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
