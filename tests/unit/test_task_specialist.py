@@ -74,10 +74,10 @@ class TestTaskSpecialist:
             analysis_report="Some analysis report...",
             review_number=1,
         )
-        assert "TASK TO IMPLEMENT:" in prompt
-        assert "FINAL ANALYSIS TO EVALUATE:" in prompt
-        assert "EVALUATION CRITERIA:" in prompt
-        assert "OUTPUT FORMAT (MANDATORY):" in prompt
+        assert "TASK:" in prompt
+        assert "ANALYSIS TO EVALUATE:" in prompt
+        assert "QUALITY REQUIREMENTS:" in prompt
+        assert "RESPONSE FORMAT:" in prompt
         assert '{"is_complete": true' in prompt  # example JSON
 
     def test_review_analysis_accept_llm_json(self, task_specialist, mock_agent):
@@ -153,7 +153,7 @@ class TestTaskSpecialist:
         )
         assert is_complete is True
         assert "maximum review limit reached" in feedback
-        assert confidence == 0.7
+        assert confidence == 0.5
         # agent.run should not be called for force accept
         # We don't need to assert on mock_agent.run since it wasn't called
 

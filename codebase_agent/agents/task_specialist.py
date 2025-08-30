@@ -91,6 +91,13 @@ AUTOMATIC REJECTION TRIGGERS:
 - Claims about "best practices" without showing specific implementation
 - Line counts or file sizes as evidence of anything meaningful
 
+CONFIDENCE SCORING (CRITICAL):
+- 0.9-1.0: Ready for immediate implementation with complete technical details
+- 0.8-0.89: Good technical depth but missing some implementation specifics
+- 0.7-0.79: Adequate overview but needs significant additional investigation
+- 0.6-0.69: Insufficient technical detail for confident implementation
+- Below 0.6: Completely inadequate, needs major rework
+
 REJECTION EXAMPLES OF UNACCEPTABLE FLUFF:
 - "The system uses AutoGen framework" → REJECT: HOW is it integrated? What specific APIs?
 - "Has three main components" → REJECT: What do they DO exactly? How do they communicate?
@@ -100,7 +107,7 @@ REJECTION EXAMPLES OF UNACCEPTABLE FLUFF:
 DECISION STANDARD:
 Ask yourself: "If I were doing a code review, would I approve this level of technical detail, or would I write a scathing comment demanding actual implementation specifics?"
 
-ONLY ACCEPT if the report contains enough implementation details that you could start coding immediately without asking follow-up questions.
+ONLY ACCEPT WITH HIGH CONFIDENCE (0.8+) if the report contains enough implementation details that you could start coding immediately without asking follow-up questions.
 
 REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineering time."""
 
@@ -127,10 +134,16 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
             f"Starting Task Specialist review {self.review_count}/{self.max_reviews}"
         )
 
-        # Force accept if maximum reviews reached
+        # Force accept if maximum reviews reached with stricter confidence penalty
         if self.review_count >= self.max_reviews:
-            self.logger.info("Maximum reviews reached, force accepting analysis")
-            return True, "Analysis accepted (maximum review limit reached)", 0.7
+            self.logger.warning(
+                "Maximum reviews reached - forcing acceptance with low confidence"
+            )
+            return (
+                True,
+                "Analysis accepted (maximum review limit reached - quality may be insufficient)",
+                0.5,
+            )  # 降低強制接受的信心分數
 
         # Primary path: Ask the LLM to perform the review with a structured prompt
         try:
@@ -153,8 +166,25 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
                 llm_response
             )
 
-            # If parsing succeeded, honor LLM decision
+            # If parsing succeeded, honor LLM decision but apply minimum confidence threshold
             if feedback:
+                # Apply stricter confidence threshold for acceptance
+                min_confidence_for_acceptance = 0.80
+
+                # First review should be extra strict - always ask for improvements
+                if self.review_count == 1:
+                    min_confidence_for_acceptance = 0.90
+                    self.logger.info(
+                        "First review - applying extra strict confidence threshold (0.90)"
+                    )
+
+                if is_complete and confidence < min_confidence_for_acceptance:
+                    self.logger.warning(
+                        f"LLM accepted but confidence {confidence:.2f} below threshold {min_confidence_for_acceptance}"
+                    )
+                    is_complete = False
+                    feedback = f"Analysis needs improvement. {feedback} (Confidence {confidence:.2f} below required {min_confidence_for_acceptance})"
+
                 self.logger.info(
                     f"LLM review completed. Decision: {'ACCEPT' if is_complete else 'REJECT'} "
                     f"(confidence={confidence:.2f})"
@@ -183,68 +213,49 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
         # Extract only the FINAL ANALYSIS section for evaluation
         final_analysis = self._extract_final_analysis(analysis_report)
 
-        actionability_criteria = (
-            "- Specific method signatures and class hierarchies are provided\n"
-            "- Data structures and their transformations are explained\n"
-            "- Component interaction patterns with concrete examples\n"
-            "- Implementation algorithms and design patterns used\n"
-            "- Error handling and edge case considerations\n"
-            "- Performance characteristics and bottlenecks\n"
-            "- Configuration and deployment specifics"
-        )
-
-        detail_criteria = (
-            "- Actual code snippets or function names (not just 'uses framework X')\n"
-            "- Specific file paths with line numbers for key functionality\n"
-            "- Method signatures and parameter details for integration points\n"
-            "- Data flow diagrams or concrete examples of component interaction\n"
-            "- Implementation patterns with actual code structure\n"
-            "- Concrete configuration examples and setup procedures"
-        )
-
-        engineer_mindset = (
-            "You are a TECH LEAD who is FURIOUS about wasted time on superficial reports. "
-            "You are evaluating the FINAL ANALYSIS section - this is what gets delivered to users and "
-            "it MUST contain actual technical substance, not marketing fluff or meta-statements about having findings. "
-            "AUTOMATICALLY REJECT if the Final Analysis just says it 'has sufficient details' or 'can provide complete analysis' without actually providing it. "
-            "AUTOMATICALLY REJECT if the Final Analysis contains buzzwords like 'sophisticated', 'comprehensive', "
-            "'excellent', 'enterprise-level', 'well-organized' without concrete technical backing. "
-            "The Final Analysis must explain EXACTLY how components work, not just say they exist or claim completeness. "
-            "REJECT ruthlessly if the Final Analysis reads like a press release or meta-commentary instead of actual technical documentation."
-        )
-
         return f"""
-You are a Task Specialist - an experienced engineer who will receive this analysis report and execute the requested task.
+You are a CODE REVIEW SPECIALIST evaluating analysis reports. Think like a tech lead who has to implement this task.
 
-TASK TO IMPLEMENT:
-{task_description}
+TASK: {task_description}
 
-FINAL ANALYSIS TO EVALUATE:
-<<<FINAL_ANALYSIS_START>>>
+ANALYSIS TO EVALUATE:
 {final_analysis}
-<<<FINAL_ANALYSIS_END>>>
 
-EVALUATION CRITERIA:
+CORE QUESTION: "Can I start implementing this task immediately, or do I need to investigate the codebase further?"
 
-ACTIONABILITY REQUIREMENTS (TECHNICAL DEPTH):
-{actionability_criteria}
+QUALITY REQUIREMENTS:
+1. SYSTEM UNDERSTANDING: Explains HOW components work together, not just what they are
+2. ENTRY POINTS: Shows WHERE to start investigating or modifying code
+3. DATA FLOW: Describes how information flows through the system
+4. TASK RELEVANCE: Connects analysis directly to the requested task
 
-DETAIL DEPTH REQUIREMENTS (CONCRETE SPECIFICS):
-{detail_criteria}
+REJECT IMMEDIATELY IF:
+- Lists components without explaining interactions
+- Shows code examples instead of architectural understanding
+- Provides generic advice not specific to this codebase
+- Missing explanation of how the system actually operates
+- No clear guidance on where to focus for this specific task
 
-SENIOR ENGINEER EVALUATION MINDSET:
-{engineer_mindset}
+CONFIDENCE SCORING:
+- 0.9+: Ready to implement - clear system understanding and task guidance
+- 0.8-0.89: Good foundation but missing some implementation details
+- 0.7-0.79: Basic overview but needs significant additional investigation
+- Below 0.7: Inadequate - requires major additional analysis
 
-CRITICAL QUESTION: "Would I respect a colleague who presented this level of technical detail, or would I think they're wasting my time with surface-level fluff?"
+FEEDBACK RULES:
+- For REJECTIONS: Provide specific shell commands to fill gaps
+- For ACCEPTANCE: Briefly confirm what makes it ready for implementation
 
-If the answer is the latter, REJECT immediately and demand real technical substance.
+RESPONSE FORMAT:
+JSON only: {{"is_complete": boolean, "feedback": "specific actionable guidance", "confidence": float}}
 
-OUTPUT FORMAT (MANDATORY):
-Return ONLY a minified JSON object on the first line with keys: is_complete (boolean), feedback (string), confidence (float in [0,1]).
+REJECTION EXAMPLES:
+{{"is_complete": false, "feedback": "Missing data flow. Run: grep -r 'def process\\|def handle' . to find entry points, then trace how requests flow through the system", "confidence": 0.35}}
 
-Examples:
-{{"is_complete": true, "feedback": "Report provides sufficient technical detail for immediate implementation - specific entry points, integration strategies, and code examples are clear", "confidence": 0.88}}
-{{"is_complete": false, "feedback": "Missing critical implementation details: specific function signatures for integration points, concrete file paths for modification, existing code patterns for similar functionality", "confidence": 0.25}}
+{{"is_complete": false, "feedback": "Component interactions unclear. Execute: find . -name '*manager*.py' -exec grep -l 'def __init__' {{}} \\; then examine dependency injection patterns", "confidence": 0.40}}
+
+ACCEPTANCE EXAMPLE:
+{{"is_complete": true, "feedback": "Clear system operation explanation with task-specific entry points identified", "confidence": 0.87}}
 """
 
     def _extract_final_analysis(self, analysis_report: str) -> str:
