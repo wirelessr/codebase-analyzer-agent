@@ -310,11 +310,14 @@ CREATE TABLE users (
         query = "I want to add JWT-based authentication and user role management to this Go API. Plan the complete implementation including security considerations, database schema changes, middleware design, and API endpoint modifications."
         print(f"🔍 Feature Planning Query: {query}")
 
-        result = manager.process_query_with_review_cycle(query, temp_codebase)
+        result, statistics = manager.process_query_with_review_cycle(
+            query, temp_codebase
+        )
 
         print("📊 Feature planning completed!")
         print(f"📋 Result length: {len(result)} chars")
         print(f"📄 Result preview: {result[:300]}...")
+        print(f"🔢 Statistics: {statistics}")
 
         # Verify that we got a real feature planning response
         assert (
@@ -325,6 +328,9 @@ CREATE TABLE users (
             or "authentication" in result.lower()
             or "middleware" in result.lower()
         )
+        # Verify statistics are returned
+        assert isinstance(statistics, dict)
+        assert "total_review_cycles" in statistics
 
         # Verify structure of response for feature planning
         assert "# Codebase Analysis Results" in result
@@ -423,7 +429,9 @@ CREATE TABLE users (
         query = "I need to add email notification functionality to this Go API. Analyze current structure and plan the implementation including SMTP service integration, notification templates with Go's template package, and asynchronous job processing for email sending."
         print(f"🔍 Feature Coordination Query: {query}")
 
-        result = manager.process_query_with_review_cycle(query, temp_codebase)
+        result, statistics = manager.process_query_with_review_cycle(
+            query, temp_codebase
+        )
 
         print("📊 Agent coordination test completed!")
         print(f"📋 Result length: {len(result)} chars")
