@@ -410,17 +410,22 @@ pytest-asyncio==0.21.1
         # Use a query focused on data flow analysis
         query = "分析這個用戶管理系統的資料流設計：從API請求到資料庫操作的完整數據傳遞路徑、資料轉換過程、以及各層之間的資料交互模式"
 
-        # Patch the LLM agent to capture intermediate responses
+        # Patch the utility function to capture intermediate responses
         captured_iterations = []
-        original_extract_response = analyzer._extract_response_text
+        from codebase_agent.utils.autogen_utils import (
+            extract_text_from_autogen_response,
+        )
+
+        original_extract_response = extract_text_from_autogen_response
 
         def capture_iteration_response(step_response):
             response_text = original_extract_response(step_response)
             captured_iterations.append(response_text)
             return response_text
 
-        with patch.object(
-            analyzer, "_extract_response_text", side_effect=capture_iteration_response
+        with patch(
+            "codebase_agent.agents.code_analyzer.extract_text_from_autogen_response",
+            side_effect=capture_iteration_response,
         ):
             result = analyzer.analyze_codebase(query, complex_test_codebase)
 
@@ -488,15 +493,20 @@ pytest-asyncio==0.21.1
 
         # Capture all LLM responses to track knowledge refinement
         all_responses = []
-        original_extract_response = analyzer._extract_response_text
+        from codebase_agent.utils.autogen_utils import (
+            extract_text_from_autogen_response,
+        )
+
+        original_extract_response = extract_text_from_autogen_response
 
         def capture_iteration_response(step_response):
             response_text = original_extract_response(step_response)
             all_responses.append(response_text)
             return response_text
 
-        with patch.object(
-            analyzer, "_extract_response_text", side_effect=capture_iteration_response
+        with patch(
+            "codebase_agent.agents.code_analyzer.extract_text_from_autogen_response",
+            side_effect=capture_iteration_response,
         ):
             result = analyzer.analyze_codebase(query, complex_test_codebase)
 
