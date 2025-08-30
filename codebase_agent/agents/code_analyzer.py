@@ -21,6 +21,8 @@ import logging
 
 from autogen_agentchat.agents import AssistantAgent
 
+from ..utils.autogen_utils import extract_text_from_autogen_response
+
 
 class CodeAnalyzer:
     """
@@ -224,7 +226,7 @@ Always explain your findings with specific examples, line numbers, and evidence 
             step_response = run_step(iteration_prompt)
 
             # Extract text from TaskResult object
-            response_text = self._extract_response_text(step_response)
+            response_text = extract_text_from_autogen_response(step_response)
 
             # Parse JSON response from LLM
             try:
@@ -294,28 +296,6 @@ Always explain your findings with specific examples, line numbers, and evidence 
         return self._synthesize_final_response(
             query, analysis_context, shared_key_findings, convergence_indicators
         )
-
-    def _extract_response_text(self, step_response) -> str:
-        """Extract text from AutoGen response object."""
-        response_text = step_response
-        if hasattr(step_response, "messages") and len(step_response.messages) > 0:
-            # Get the last message from TaskResult
-            last_message = step_response.messages[-1]
-            if hasattr(last_message, "content"):
-                response_text = last_message.content
-            else:
-                response_text = str(last_message)
-        elif hasattr(step_response, "chat_message"):
-            # Handle other AutoGen Response objects (fallback)
-            if hasattr(step_response.chat_message, "content"):
-                response_text = step_response.chat_message.content
-            elif hasattr(step_response.chat_message, "to_text"):
-                response_text = step_response.chat_message.to_text()
-            else:
-                response_text = str(step_response.chat_message)
-        elif not isinstance(step_response, str):
-            response_text = str(step_response)
-        return response_text
 
     def _execute_shell_commands(self, commands: list[str]) -> list[dict]:
         """Execute a list of shell commands and return results."""
@@ -517,10 +497,9 @@ Always explain your findings with specific examples, line numbers, and evidence 
         # Get the most recent analysis
         final_context = context[-1]
         final_decision = final_context.get("llm_decision", {})
-        final_analysis = final_decision.get("current_analysis", "No analysis available")
         final_confidence = final_decision.get("confidence_level", 0)
 
-        # Create comprehensive synthesis
+        # Create comprehensive synthesis with KEY FINDINGS and proper final analysis
         synthesis = f"""
         CODEBASE ANALYSIS COMPLETE
 
@@ -532,17 +511,30 @@ Always explain your findings with specific examples, line numbers, and evidence 
         KEY FINDINGS (Collaborative Knowledge Base):
         """
 
-        # Add key findings
+        # Add key findings for debugging and transparency
         if shared_key_findings:
             for i, finding in enumerate(shared_key_findings, 1):
                 synthesis += f"{i}. {finding}\n"
         else:
-            synthesis += "No key findings recorded.\n"
+            synthesis += "No key findings available.\n"
 
-        synthesis += f"""
+        # Generate comprehensive final analysis from all findings
+        synthesis += """
 
         FINAL ANALYSIS:
-        {final_analysis}
+        """
+
+        if shared_key_findings:
+            # Create a comprehensive technical report based on all key findings
+            synthesis += self._generate_comprehensive_analysis(
+                query, shared_key_findings, context
+            )
+        else:
+            synthesis += (
+                "Unable to perform comprehensive analysis due to insufficient findings."
+            )
+
+        synthesis += """
 
         EXECUTION SUMMARY:
         """
@@ -566,6 +558,94 @@ Always explain your findings with specific examples, line numbers, and evidence 
             synthesis += f"Knowledge base size: {kb_size} findings\n"
 
         return synthesis
+
+    def _generate_comprehensive_analysis(
+        self, query: str, key_findings: list, context: list
+    ) -> str:
+        """Generate a comprehensive technical analysis report from complete analysis context."""
+        try:
+            # Build a comprehensive prompt using ALL available information
+            synthesis_prompt = f"""
+            Based on the complete codebase analysis process, generate a comprehensive technical report that answers the user's query: "{query}"
+
+            === ANALYSIS CONTEXT ===
+
+            Key Findings Summary:
+            """
+
+            for i, finding in enumerate(key_findings, 1):
+                synthesis_prompt += f"{i}. {finding}\n"
+
+            synthesis_prompt += "\n=== DETAILED ANALYSIS ITERATIONS ===\n"
+
+            # Include analysis from each iteration for richer context
+            for ctx in context:
+                iteration = ctx.get("iteration", "Unknown")
+                llm_decision = ctx.get("llm_decision", {})
+                shell_results = ctx.get("shell_results", [])
+
+                synthesis_prompt += f"\nIteration {iteration}:\n"
+
+                # Add shell command insights
+                if shell_results:
+                    synthesis_prompt += "Commands executed and key discoveries:\n"
+                    for result in shell_results:
+                        if result.get("success") and result.get("stdout"):
+                            # Include relevant command output (truncated)
+                            stdout_sample = result["stdout"][:500]
+                            synthesis_prompt += (
+                                f"- {result['command']}: {stdout_sample}...\n"
+                            )
+
+                # Add LLM analysis from this iteration
+                current_analysis = llm_decision.get("current_analysis", "")
+                if current_analysis:
+                    synthesis_prompt += f"Analysis insights: {current_analysis}\n"
+
+                # Add focus areas
+                focus_areas = llm_decision.get("next_focus_areas", "")
+                if focus_areas:
+                    synthesis_prompt += f"Focus areas identified: {focus_areas}\n"
+
+            synthesis_prompt += """
+
+            === SYNTHESIS REQUIREMENTS ===
+            Create a comprehensive technical report that:
+            1. Directly answers the user's query with specific technical details
+            2. Synthesizes information from all iterations into coherent sections
+            3. Provides concrete examples from the actual codebase analysis
+            4. Explains component relationships and architectural patterns
+            5. Includes specific file paths, class names, method signatures discovered
+            6. Identifies key integration points and technical patterns
+            7. Highlights important technical considerations for implementation
+
+            Format as a clear, actionable technical report that an engineer could use immediately.
+            Focus on technical substance, not process meta-information.
+            """
+
+            # Use the LLM to generate comprehensive analysis
+            import asyncio
+
+            async def generate_synthesis():
+                result = await self._agent.run(task=synthesis_prompt)
+                return extract_text_from_autogen_response(result)
+
+            comprehensive_analysis = asyncio.run(generate_synthesis())
+
+            if comprehensive_analysis and len(comprehensive_analysis.strip()) > 50:
+                return comprehensive_analysis.strip()
+            else:
+                # If LLM synthesis fails, return basic information without fake intelligence
+                return "LLM synthesis failed. Raw key findings:\n" + "\n".join(
+                    f"- {finding}" for finding in key_findings
+                )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to generate comprehensive analysis: {e}")
+            return (
+                f"Analysis synthesis failed due to error: {e}\nRaw key findings:\n"
+                + "\n".join(f"- {finding}" for finding in key_findings)
+            )
 
     def _get_timestamp(self) -> str:
         """Get current timestamp for logging."""

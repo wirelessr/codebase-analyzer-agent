@@ -11,6 +11,8 @@ import re
 
 from autogen_agentchat.agents import AssistantAgent
 
+from ..utils.autogen_utils import extract_text_from_autogen_response
+
 
 class TaskSpecialist:
     """
@@ -178,6 +180,9 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
         The LLM must decide completeness per the review criteria and return a JSON object:
         {"is_complete": bool, "feedback": str, "confidence": float}
         """
+        # Extract only the FINAL ANALYSIS section for evaluation
+        final_analysis = self._extract_final_analysis(analysis_report)
+
         actionability_criteria = (
             "- Specific method signatures and class hierarchies are provided\n"
             "- Data structures and their transformations are explained\n"
@@ -199,12 +204,13 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
 
         engineer_mindset = (
             "You are a TECH LEAD who is FURIOUS about wasted time on superficial reports. "
-            "Pay SPECIAL ATTENTION to the 'FINAL ANALYSIS' section - this is what gets delivered to users and "
-            "it MUST contain actual technical substance, not marketing fluff. "
+            "You are evaluating the FINAL ANALYSIS section - this is what gets delivered to users and "
+            "it MUST contain actual technical substance, not marketing fluff or meta-statements about having findings. "
+            "AUTOMATICALLY REJECT if the Final Analysis just says it 'has sufficient details' or 'can provide complete analysis' without actually providing it. "
             "AUTOMATICALLY REJECT if the Final Analysis contains buzzwords like 'sophisticated', 'comprehensive', "
             "'excellent', 'enterprise-level', 'well-organized' without concrete technical backing. "
-            "The Final Analysis must explain EXACTLY how components work, not just say they exist. "
-            "REJECT ruthlessly if the Final Analysis reads like a press release instead of technical documentation."
+            "The Final Analysis must explain EXACTLY how components work, not just say they exist or claim completeness. "
+            "REJECT ruthlessly if the Final Analysis reads like a press release or meta-commentary instead of actual technical documentation."
         )
 
         return f"""
@@ -213,10 +219,10 @@ You are a Task Specialist - an experienced engineer who will receive this analys
 TASK TO IMPLEMENT:
 {task_description}
 
-ANALYSIS REPORT TO EVALUATE:
-<<<ANALYSIS_REPORT_START>>>
-{analysis_report}
-<<<ANALYSIS_REPORT_END>>>
+FINAL ANALYSIS TO EVALUATE:
+<<<FINAL_ANALYSIS_START>>>
+{final_analysis}
+<<<FINAL_ANALYSIS_END>>>
 
 EVALUATION CRITERIA:
 
@@ -241,30 +247,31 @@ Examples:
 {{"is_complete": false, "feedback": "Missing critical implementation details: specific function signatures for integration points, concrete file paths for modification, existing code patterns for similar functionality", "confidence": 0.25}}
 """
 
+    def _extract_final_analysis(self, analysis_report: str) -> str:
+        """Extract only the FINAL ANALYSIS section from the complete report."""
+        import re
+
+        # Look for FINAL ANALYSIS section
+        final_analysis_pattern = r"FINAL ANALYSIS:\s*(.*?)(?=\n\s*EXECUTION SUMMARY:|$)"
+        match = re.search(
+            final_analysis_pattern, analysis_report, re.DOTALL | re.IGNORECASE
+        )
+
+        if match:
+            final_analysis = match.group(1).strip()
+            if final_analysis:
+                return final_analysis
+
+        # Fallback: if we can't find the section, return a note about missing analysis
+        return "No FINAL ANALYSIS section found in the report."
+
     def _parse_llm_review_response(self, raw_response) -> tuple[bool, str, float]:
         """Parse the LLM response and extract the JSON decision.
 
         Supports plain JSON or fenced code blocks. Falls back to empty feedback on failure.
         """
         # Handle TaskResult object from agent.run()
-        response_text = raw_response
-        if hasattr(raw_response, "messages") and len(raw_response.messages) > 0:
-            # Get the last message from TaskResult
-            last_message = raw_response.messages[-1]
-            if hasattr(last_message, "content"):
-                response_text = last_message.content
-            else:
-                response_text = str(last_message)
-        elif hasattr(raw_response, "chat_message"):
-            # Handle other AutoGen Response objects
-            if hasattr(raw_response.chat_message, "content"):
-                response_text = raw_response.chat_message.content
-            elif hasattr(raw_response.chat_message, "to_text"):
-                response_text = raw_response.chat_message.to_text()
-            else:
-                response_text = str(raw_response.chat_message)
-        elif not isinstance(raw_response, str):
-            response_text = str(raw_response)
+        response_text = extract_text_from_autogen_response(raw_response)
 
         if not isinstance(response_text, str):
             response_text = str(response_text)

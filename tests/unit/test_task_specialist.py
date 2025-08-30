@@ -75,7 +75,7 @@ class TestTaskSpecialist:
             review_number=1,
         )
         assert "TASK TO IMPLEMENT:" in prompt
-        assert "ANALYSIS REPORT TO EVALUATE:" in prompt
+        assert "FINAL ANALYSIS TO EVALUATE:" in prompt
         assert "EVALUATION CRITERIA:" in prompt
         assert "OUTPUT FORMAT (MANDATORY):" in prompt
         assert '{"is_complete": true' in prompt  # example JSON

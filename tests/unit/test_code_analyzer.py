@@ -132,7 +132,11 @@ class TestCodeAnalyzer:
         assert "confidence_level" in system_message
 
     def test_extract_response_text(self, analyzer):
-        """Test response text extraction from AutoGen TaskResult."""
+        """Test response text extraction from AutoGen TaskResult using utility function."""
+        from codebase_agent.utils.autogen_utils import (
+            extract_text_from_autogen_response,
+        )
+
         # Mock TaskResult structure
         mock_task_result = Mock()
         mock_task_result.messages = [
@@ -140,7 +144,7 @@ class TestCodeAnalyzer:
             Mock(content="Message 2"),
         ]
 
-        result = analyzer._extract_response_text(mock_task_result)
+        result = extract_text_from_autogen_response(mock_task_result)
 
         # Should extract the last message content
         assert result == "Message 2"
@@ -453,8 +457,8 @@ class TestCodeAnalyzer:
 
             result = analyzer.analyze_codebase("Complex analysis", "/test/path")
 
-        # Should stop at max iterations (10)
-        assert call_count[0] == 10
+        # Should stop at max iterations (10) + 1 for final synthesis
+        assert call_count[0] == 11
         assert "Iterations: 10" in result
 
     def test_build_iteration_prompt_includes_context(self, analyzer):
