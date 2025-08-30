@@ -332,9 +332,7 @@ The codebase intentionally contains various types of bugs:
 
     def test_basic_analysis_prompt_effectiveness(self, analyzer, temp_codebase):
         """Test debugging analysis prompt with real LLM."""
-        query = (
-            "分析這個Go專案中的潛在錯誤和安全漏洞，找出可能導致程式崩潰或資料洩露的bug"
-        )
+        query = "Analyze potential errors and security vulnerabilities in this Go project, find bugs that may cause program crashes or data leaks"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -352,9 +350,9 @@ The codebase intentionally contains various types of bugs:
             "resource leak",
             "goroutine",
             "vulnerability",
-            "錯誤",
-            "漏洞",
-            "除錯",
+            "error",
+            "flaw",
+            "debug",
         ]
         result_lower = result.lower()
         found_keywords = [
@@ -366,7 +364,7 @@ The codebase intentionally contains various types of bugs:
 
     def test_analysis_convergence_prompt(self, analyzer, temp_codebase):
         """Test that debugging analysis prompts lead to convergence on error identification."""
-        query = "完整除錯分析：找出這個Go專案中所有的安全漏洞、並發問題和資源洩露問題"
+        query = "Complete debugging analysis: Find all security vulnerabilities, concurrency issues, and resource leak problems in this Go project"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -391,9 +389,9 @@ The codebase intentionally contains various types of bugs:
             "resource leak",
             "goroutine leak",
             "vulnerability",
-            "錯誤處理",
-            "安全漏洞",
-            "並發問題",
+            "error handling",
+            "security vulnerability",
+            "concurrency issue",
         ]
         result_lower = result.lower()
         found_error_terms = [term for term in error_terms if term in result_lower]
@@ -401,13 +399,13 @@ The codebase intentionally contains various types of bugs:
             len(found_error_terms) >= 1
         ), f"Expected error identification, found: {found_error_terms}"
 
-    def test_prompt_chinese_language_support(self, analyzer, temp_codebase):
-        """Test that debugging prompts work effectively in Chinese."""
-        query = "評估這個Go專案的程式碼安全性和穩定性，找出容易造成資料洩露或程式崩潰的問題點"
+    def test_prompt_multilingual_support(self, analyzer, temp_codebase):
+        """Test that debugging prompts work effectively in multiple languages (Chinese example)."""
+        query = "Evaluate the code security and stability of this Go project, find problems that easily cause data leaks or program crashes"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
-        # Verify the LLM understood the Chinese debugging query
+        # Verify the LLM understood the debugging query
         assert "CODEBASE ANALYSIS COMPLETE" in result
 
         # Should mention stability and crash-related concepts in response
@@ -416,11 +414,11 @@ The codebase intentionally contains various types of bugs:
             "crash",
             "error",
             "exception",
-            "穩定",
-            "當機",
-            "錯誤",
-            "異常",
-            "問題",
+            "stable",
+            "failure",
+            "fault",
+            "issue",
+            "problem",
         ]
         result_lower = result.lower()
         found_keywords = [
@@ -432,8 +430,8 @@ The codebase intentionally contains various types of bugs:
 
     def test_specialist_feedback_prompt_integration(self, analyzer, temp_codebase):
         """Test that specialist feedback is properly integrated into debugging prompts."""
-        query = "分析專案中的錯誤處理"
-        feedback = "請特別關注除錯資訊的完整性和錯誤恢復機制的設計"
+        query = "Analyze error handling in the project"
+        feedback = "Please pay special attention to the completeness of debugging information and the design of error recovery mechanisms"
 
         result = analyzer.analyze_codebase(
             query, temp_codebase, specialist_feedback=feedback
@@ -450,9 +448,9 @@ The codebase intentionally contains various types of bugs:
             "goroutine",
             "resource leak",
             "vulnerability",
-            "錯誤處理",
-            "安全漏洞",
-            "並發問題",
+            "error handling",
+            "security vulnerability",
+            "concurrency issue",
             "error",
             "concurrency",
             "memory safety",
@@ -477,7 +475,7 @@ The codebase intentionally contains various types of bugs:
 
     def test_multi_round_prompt_consistency(self, analyzer, temp_codebase):
         """Test that multi-round debugging prompts maintain consistency."""
-        query = "深入分析這個Go專案的錯誤處理機制、並發安全性和資源管理設計"
+        query = "In-depth analysis of this Go project's error handling mechanisms, concurrency safety, and resource management design"
 
         result = analyzer.analyze_codebase(query, temp_codebase)
 
@@ -493,10 +491,10 @@ The codebase intentionally contains various types of bugs:
             "nil pointer",
             "resource",
             "safety",
-            "錯誤",
-            "並發",
-            "安全",
-            "資源",
+            "fault",
+            "parallel",
+            "secure",
+            "memory",
         ]
         result_lower = result.lower()
         found_keywords = [

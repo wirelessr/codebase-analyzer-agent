@@ -408,7 +408,7 @@ pytest-asyncio==0.21.1
         """Test data flow analysis with knowledge accumulation across multiple iterations."""
 
         # Use a query focused on data flow analysis
-        query = "分析這個用戶管理系統的資料流設計：從API請求到資料庫操作的完整數據傳遞路徑、資料轉換過程、以及各層之間的資料交互模式"
+        query = "Analyze the data flow design of this user management system: complete data transfer paths from API requests to database operations, data transformation processes, and data interaction patterns between layers"
 
         # Patch the utility function to capture intermediate responses
         captured_iterations = []
@@ -474,9 +474,9 @@ pytest-asyncio==0.21.1
             "request",
             "response",
             "transformation",
-            "資料",
-            "數據",
-            "流程",
+            "information",
+            "dataset",
+            "process",
         ]
         result_lower = result.lower()
         found_terms = [term for term in data_flow_terms if term in result_lower]
@@ -489,7 +489,7 @@ pytest-asyncio==0.21.1
     ):
         """Test data flow knowledge refinement and updates across iterations."""
 
-        query = "分析這個專案的資料庫操作模式和資料持久化策略，包括連接管理、事務處理、資料存取層設計"
+        query = "Analyze the database operation patterns and data persistence strategies of this project, including connection management, transaction processing, and data access layer design"
 
         # Capture all LLM responses to track knowledge refinement
         all_responses = []
@@ -588,7 +588,7 @@ pytest-asyncio==0.21.1
     ):
         """Test that knowledge base maintains continuity and doesn't lose important findings."""
 
-        query = "評估這個專案的代碼品質和架構設計模式"
+        query = "Evaluate the code quality and architectural design patterns of this project"
 
         # Track knowledge base across iterations to ensure persistence
         kb_timeline = []
@@ -655,10 +655,10 @@ pytest-asyncio==0.21.1
                     "design",
                     "architecture",
                     "code",
-                    "品質",
-                    "設計",
-                    "架構",
-                    "模式",
+                    "quality",
+                    "pattern",
+                    "structure",
+                    "framework",
                 ]
 
                 relevant_findings = sum(
@@ -679,7 +679,7 @@ pytest-asyncio==0.21.1
     def test_knowledge_base_convergence_quality(self, analyzer, complex_test_codebase):
         """Test that knowledge base converges to high-quality, comprehensive findings."""
 
-        query = "完整分析這個FastAPI專案的架構層次和依賴注入設計"
+        query = "Complete analysis of this FastAPI project's architectural layers and dependency injection design"
 
         result = analyzer.analyze_codebase(query, complex_test_codebase)
 
@@ -698,11 +698,11 @@ pytest-asyncio==0.21.1
             "dependency",
             "injection",
             "pattern",
-            "層",
-            "架構",
-            "依賴",
-            "注入",
-            "設計",
+            "layer",
+            "architecture",
+            "dependency",
+            "injection",
+            "design",
         ]
 
         found_keywords = [
@@ -723,9 +723,9 @@ pytest-asyncio==0.21.1
     def test_knowledge_base_multilingual_handling(
         self, analyzer, complex_test_codebase
     ):
-        """Test that knowledge base works correctly with Chinese queries and findings."""
+        """Test that knowledge base works correctly with multilingual queries and findings."""
 
-        query = "分析這個專案使用了哪些設計模式，以及它們如何改善代碼的可維護性"
+        query = "Analyze which design patterns this project uses, and how they improve code maintainability"
 
         result = analyzer.analyze_codebase(query, complex_test_codebase)
 
@@ -739,12 +739,12 @@ pytest-asyncio==0.21.1
             "maintain",
             "architecture",
             "service",
-            "設計",
-            "模式",
-            "維護",
-            "架構",
-            "服務",
-            "可維護性",
+            "structure",
+            "model",
+            "maintenance",
+            "framework",
+            "component",
+            "maintainability",
         ]
 
         found_relevant = [

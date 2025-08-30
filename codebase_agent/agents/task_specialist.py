@@ -143,7 +143,7 @@ REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineerin
                 True,
                 "Analysis accepted (maximum review limit reached - quality may be insufficient)",
                 0.5,
-            )  # 降低強制接受的信心分數
+            )  # Lower confidence score for forced acceptance
 
         # Primary path: Ask the LLM to perform the review with a structured prompt
         try:
