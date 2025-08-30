@@ -56,7 +56,9 @@ class AgentManager:
             self.logger.error(f"Failed to initialize agents: {e}")
             raise
 
-    def process_query_with_review_cycle(self, query: str, codebase_path: str) -> str:
+    def process_query_with_review_cycle(
+        self, query: str, codebase_path: str
+    ) -> tuple[str, dict]:
         """
         Process user query through multi-round analysis and review cycle.
 
@@ -71,7 +73,11 @@ class AgentManager:
             codebase_path: Path to the codebase to analyze
 
         Returns:
-            Final synthesized response after specialist approval or max reviews reached
+            Tuple of (final_response, statistics) where statistics contains:
+            - total_review_cycles: Total number of review cycles executed
+            - rejections: Number of times Task Specialist rejected the analysis
+            - final_acceptance_type: 'accepted' or 'forced'
+            - final_confidence: Final confidence score from Task Specialist
         """
         if not self.code_analyzer or not self.task_specialist:
             raise RuntimeError(
@@ -81,11 +87,21 @@ class AgentManager:
         self.logger.info(f"Starting analysis for query: {query}")
         self.logger.info(f"Codebase path: {codebase_path}")
 
+        # Initialize statistics tracking
+        statistics = {
+            "total_review_cycles": 0,
+            "rejections": 0,
+            "final_acceptance_type": "unknown",
+            "final_confidence": 0.0,
+        }
+
         specialist_feedback = None
         review_count = 0
 
         while review_count < self.max_specialist_reviews:
             review_count += 1
+            statistics["total_review_cycles"] = review_count
+
             self.logger.info(
                 f"Starting review cycle {review_count}/{self.max_specialist_reviews}"
             )
@@ -108,30 +124,42 @@ class AgentManager:
 
             # Check if specialist accepts the analysis
             if is_complete:
+                statistics["final_acceptance_type"] = "accepted"
+                statistics["final_confidence"] = confidence_score
                 self.logger.info(
                     f"Analysis accepted on review cycle {review_count} with confidence {confidence_score:.2f}"
                 )
-                return self._synthesize_final_response(
+                final_response = self._synthesize_final_response(
                     analysis_result, True, feedback_message, query
                 )
+                return final_response, statistics
+
+            # Track rejection
+            statistics["rejections"] += 1
 
             # If this was the last allowed review, force accept
             if review_count >= self.max_specialist_reviews:
+                statistics["final_acceptance_type"] = "forced"
+                statistics["final_confidence"] = confidence_score
                 self.logger.warning(
                     f"Max reviews ({self.max_specialist_reviews}) reached. Force accepting analysis."
                 )
-                return self._synthesize_final_response(
+                final_response = self._synthesize_final_response(
                     analysis_result, False, feedback_message, query
                 )
+                return final_response, statistics
 
             # Get feedback and prepare for next iteration
             self.logger.info(f"Analysis rejected. Feedback: {feedback_message}")
             specialist_feedback = feedback_message
 
         # This should never be reached due to the force accept logic above
-        return self._synthesize_final_response(
+        statistics["final_acceptance_type"] = "forced"
+        statistics["final_confidence"] = confidence_score
+        final_response = self._synthesize_final_response(
             analysis_result, False, feedback_message, query
         )
+        return final_response, statistics
 
     def _synthesize_final_response(
         self,

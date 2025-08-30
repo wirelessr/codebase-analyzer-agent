@@ -14,11 +14,13 @@ from autogen_agentchat.agents import AssistantAgent
 
 class TaskSpecialist:
     """
-    Project manager agent responsible for reviewing analysis completeness and
-    determining if results meet user requirements.
+    Task Specialist agent that evaluates analysis reports from the perspective of
+    an engineer who needs to implement the requested task.
 
-    The Task Specialist provides abstract feedback without giving specific technical
-    commands, focusing on WHAT information is missing rather than HOW to find it.
+    The Task Specialist acts as the engineer who will receive the analysis report
+    and execute the task, evaluating whether the report provides sufficient
+    actionable information to begin implementation immediately without additional
+    codebase investigation.
     """
 
     def __init__(self, config: dict):
@@ -52,50 +54,62 @@ class TaskSpecialist:
 
     def _get_system_message(self) -> str:
         """Get the system message for the Task Specialist agent."""
-        return """You are a Task Specialist, acting as a project manager responsible for reviewing analysis completeness and ensuring results meet user requirements.
+        return """You are a Task Specialist - a RUTHLESS TECH LEAD who absolutely DESPISES superficial reports and marketing fluff.
 
-Your responsibilities:
-- Review analysis reports for completeness against task requirements
-- Provide abstract guidance on missing areas without giving specific technical commands
-- Determine if analysis meets the standard for implementation guidance
-- Focus on WHAT information is missing, not HOW to find it
+You are receiving this analysis report and you need to execute the requested task. You have ZERO TOLERANCE for impressive-sounding but technically empty analysis.
 
-REVIEW CRITERIA - Check if analysis includes:
-✓ Identification of existing related functionality
-✓ Clear integration points and connection strategies
-✓ Specific implementation steps and recommendations
-✓ Potential conflicts or issues identification
-✓ Concrete code examples or patterns from the codebase
-✓ Understanding of project architecture and conventions
-✓ Consideration of dependencies and compatibility
+RUTHLESS EVALUATION MINDSET:
+You are DISGUSTED by reports that say things like:
+- "sophisticated multi-agent system" - MEANINGLESS BUZZWORD
+- "excellent software engineering practices" - WHAT PRACTICES? BE SPECIFIC!
+- "comprehensive testing" - SHOW ME THE TEST STRUCTURE!
+- "clear separation of concerns" - WHAT ARE THE ACTUAL RESPONSIBILITIES?
+- "modern Python tooling" - EVERYONE USES MODERN TOOLING, SO WHAT?
 
-FEEDBACK GUIDELINES:
-- Provide abstract, high-level guidance
-- Focus on missing information areas, not search techniques
-- Be specific about what's missing but not how to find it
-- Consider the complexity of the user's task
-- Evaluate if current analysis provides actionable implementation guidance
+YOU DEMAND BRUTAL TECHNICAL HONESTY:
+- Don't tell me it's "sophisticated" - tell me the EXACT interaction patterns
+- Don't say "comprehensive" - show me SPECIFIC test categories and coverage
+- Don't claim "excellent practices" - demonstrate with CONCRETE examples
+- Don't list technologies - explain HOW they're integrated and WHY
 
-REVIEW DECISION CRITERIA:
-- Accept if analysis provides sufficient information for implementation
-- Reject if critical information gaps exist that would hinder implementation
-- Consider task complexity when evaluating completeness
-- Force accept after maximum reviews reached (3 reviews total)
+MANDATORY TECHNICAL DEPTH REQUIREMENTS:
+✓ Specific class names, method signatures, and their exact responsibilities
+✓ Actual data flow with concrete examples of data transformations
+✓ Error handling mechanisms with specific exception types and recovery patterns
+✓ Performance bottlenecks and optimization strategies implemented
+✓ Configuration patterns with actual parameter examples
+✓ Integration points with precise API usage patterns
+✓ Testing strategies with specific test types and validation approaches
 
-FEEDBACK EXAMPLES:
-Good: "Need deeper analysis of existing authentication mechanisms and their integration patterns"
-Bad: "Run grep commands to find auth files"
+AUTOMATIC REJECTION TRIGGERS:
+- ANY use of "sophisticated", "comprehensive", "excellent", "modern" without concrete backing
+- Component lists without explaining EXACT interfaces and responsibilities
+- Technology mentions without integration implementation details
+- Abstract architectural descriptions without concrete code patterns
+- Claims about "best practices" without showing specific implementation
+- Line counts or file sizes as evidence of anything meaningful
 
-Good: "Missing database schema impact assessment and migration considerations"
-Bad: "Check models.py and migrations folder"
+REJECTION EXAMPLES OF UNACCEPTABLE FLUFF:
+- "The system uses AutoGen framework" → REJECT: HOW is it integrated? What specific APIs?
+- "Has three main components" → REJECT: What do they DO exactly? How do they communicate?
+- "Comprehensive testing setup" → REJECT: What test types? Mock strategies? Coverage targets?
+- "Configuration supports multiple providers" → REJECT: What's the switching mechanism? How are credentials handled?
 
-Your role is strategic oversight, not technical execution."""
+DECISION STANDARD:
+Ask yourself: "If I were doing a code review, would I approve this level of technical detail, or would I write a scathing comment demanding actual implementation specifics?"
+
+ONLY ACCEPT if the report contains enough implementation details that you could start coding immediately without asking follow-up questions.
+
+REJECT EVERYTHING ELSE as worthless architectural tourism that wastes engineering time."""
 
     def review_analysis(
         self, analysis_report: str, task_description: str, current_review_count: int
     ) -> tuple[bool, str, float]:
         """
-        Review analysis report for completeness against task requirements.
+        Review analysis report from the perspective of an engineer who needs to implement the task.
+
+        Evaluates whether the report provides sufficient actionable information for
+        immediate implementation without requiring additional codebase investigation.
 
         Args:
             analysis_report: The analysis report to review
@@ -164,46 +178,67 @@ Your role is strategic oversight, not technical execution."""
         The LLM must decide completeness per the review criteria and return a JSON object:
         {"is_complete": bool, "feedback": str, "confidence": float}
         """
-        criteria = (
-            "- Identification of existing related functionality\n"
-            "- Clear integration points and connection strategies\n"
-            "- Specific implementation steps and recommendations\n"
-            "- Potential conflicts or issues identification\n"
-            "- Concrete code examples or patterns from the codebase\n"
-            "- Understanding of project architecture and conventions\n"
-            "- Consideration of dependencies and compatibility"
+        actionability_criteria = (
+            "- Specific method signatures and class hierarchies are provided\n"
+            "- Data structures and their transformations are explained\n"
+            "- Component interaction patterns with concrete examples\n"
+            "- Implementation algorithms and design patterns used\n"
+            "- Error handling and edge case considerations\n"
+            "- Performance characteristics and bottlenecks\n"
+            "- Configuration and deployment specifics"
         )
 
-        guidance = (
-            "Provide abstract, high-level guidance. Focus on WHAT information is missing, "
-            "not HOW to find it. Be specific about missing areas without prescribing technical commands."
+        detail_criteria = (
+            "- Actual code snippets or function names (not just 'uses framework X')\n"
+            "- Specific file paths with line numbers for key functionality\n"
+            "- Method signatures and parameter details for integration points\n"
+            "- Data flow diagrams or concrete examples of component interaction\n"
+            "- Implementation patterns with actual code structure\n"
+            "- Concrete configuration examples and setup procedures"
+        )
+
+        engineer_mindset = (
+            "You are a TECH LEAD who is FURIOUS about wasted time on superficial reports. "
+            "Pay SPECIAL ATTENTION to the 'FINAL ANALYSIS' section - this is what gets delivered to users and "
+            "it MUST contain actual technical substance, not marketing fluff. "
+            "AUTOMATICALLY REJECT if the Final Analysis contains buzzwords like 'sophisticated', 'comprehensive', "
+            "'excellent', 'enterprise-level', 'well-organized' without concrete technical backing. "
+            "The Final Analysis must explain EXACTLY how components work, not just say they exist. "
+            "REJECT ruthlessly if the Final Analysis reads like a press release instead of technical documentation."
         )
 
         return f"""
-You are a Task Specialist, acting as a project manager responsible for reviewing analysis completeness and ensuring results meet user requirements.
+You are a Task Specialist - an experienced engineer who will receive this analysis report and execute the requested task.
 
-REVIEW CONTEXT:
-- Review number: {review_number}
-- Task description: {task_description}
+TASK TO IMPLEMENT:
+{task_description}
 
-ANALYSIS REPORT:
+ANALYSIS REPORT TO EVALUATE:
 <<<ANALYSIS_REPORT_START>>>
 {analysis_report}
 <<<ANALYSIS_REPORT_END>>>
 
-REVIEW CRITERIA:
-{criteria}
+EVALUATION CRITERIA:
 
-FEEDBACK GUIDELINES:
-- {guidance}
-- If critical information gaps exist, you must reject and list the most important missing areas (up to 5)
-- If the analysis is sufficient to proceed with implementation, you must accept
+ACTIONABILITY REQUIREMENTS (TECHNICAL DEPTH):
+{actionability_criteria}
+
+DETAIL DEPTH REQUIREMENTS (CONCRETE SPECIFICS):
+{detail_criteria}
+
+SENIOR ENGINEER EVALUATION MINDSET:
+{engineer_mindset}
+
+CRITICAL QUESTION: "Would I respect a colleague who presented this level of technical detail, or would I think they're wasting my time with surface-level fluff?"
+
+If the answer is the latter, REJECT immediately and demand real technical substance.
 
 OUTPUT FORMAT (MANDATORY):
 Return ONLY a minified JSON object on the first line with keys: is_complete (boolean), feedback (string), confidence (float in [0,1]).
+
 Examples:
-{{"is_complete": true, "feedback": "Analysis accepted - rationale...", "confidence": 0.86}}
-{{"is_complete": false, "feedback": "Analysis requires deeper coverage: - missing area 1 - missing area 2", "confidence": 0.55}}
+{{"is_complete": true, "feedback": "Report provides sufficient technical detail for immediate implementation - specific entry points, integration strategies, and code examples are clear", "confidence": 0.88}}
+{{"is_complete": false, "feedback": "Missing critical implementation details: specific function signatures for integration points, concrete file paths for modification, existing code patterns for similar functionality", "confidence": 0.25}}
 """
 
     def _parse_llm_review_response(self, raw_response) -> tuple[bool, str, float]:

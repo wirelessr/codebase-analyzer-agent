@@ -154,7 +154,7 @@ def analyze(
             task = progress.add_task("Analyzing codebase with AI agents...", total=None)
 
             # Execute the analysis
-            result = agent_manager.process_query_with_review_cycle(
+            result, statistics = agent_manager.process_query_with_review_cycle(
                 task_description, str(working_directory)
             )
 
@@ -175,6 +175,7 @@ def analyze(
                 "analysis_result": result,
                 "execution_time": execution_time,
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "statistics": statistics,
             }
             console.print(json.dumps(output, indent=2))
         else:
@@ -184,6 +185,23 @@ def analyze(
                     result,
                     title="[bold green]Analysis Results[/bold green]",
                     border_style="green",
+                    padding=(1, 2),
+                )
+            )
+
+            # Display execution statistics
+            stats_text = (
+                f"Total Review Cycles: {statistics.get('total_review_cycles', 0)}\n"
+                f"Rejections: {statistics.get('rejections', 0)}\n"
+                f"Final Result: {statistics.get('final_acceptance_type', 'Unknown')}\n"
+                f"Final Confidence Score: {statistics.get('final_confidence', 'N/A')}"
+            )
+
+            console.print(
+                Panel(
+                    stats_text,
+                    title="[bold blue]Execution Statistics[/bold blue]",
+                    border_style="blue",
                     padding=(1, 2),
                 )
             )

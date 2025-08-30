@@ -56,16 +56,17 @@ class TestTaskSpecialist:
     def test_system_message_content(self, task_specialist):
         system_message = task_specialist._get_system_message()
         assert "Task Specialist" in system_message
-        assert "project manager" in system_message
-        assert "REVIEW CRITERIA" in system_message
-        assert "Identification of existing related functionality" in system_message
-        assert "Clear integration points" in system_message
-        assert "Specific implementation steps" in system_message
-        assert "Potential conflicts or issues" in system_message
-        assert "FEEDBACK GUIDELINES" in system_message
-        assert "abstract, high-level guidance" in system_message
-        assert "WHAT information is missing, not HOW to find it" in system_message
-        assert "FEEDBACK EXAMPLES" in system_message
+        assert "RUTHLESS TECH LEAD" in system_message
+        assert "DESPISES superficial reports" in system_message
+        assert "TECHNICAL DEPTH REQUIREMENTS" in system_message
+        assert "class names, method signatures" in system_message
+        assert "AUTOMATIC REJECTION TRIGGERS" in system_message
+        assert (
+            "sophisticated" in system_message
+        )  # Should be mentioned as rejection trigger
+        assert (
+            "comprehensive" in system_message
+        )  # Should be mentioned as rejection trigger
 
     def test_build_review_prompt_contains_required_sections(self, task_specialist):
         prompt = task_specialist._build_review_prompt(
@@ -73,9 +74,9 @@ class TestTaskSpecialist:
             analysis_report="Some analysis report...",
             review_number=1,
         )
-        assert "REVIEW CONTEXT:" in prompt
-        assert "ANALYSIS REPORT:" in prompt
-        assert "REVIEW CRITERIA:" in prompt
+        assert "TASK TO IMPLEMENT:" in prompt
+        assert "ANALYSIS REPORT TO EVALUATE:" in prompt
+        assert "EVALUATION CRITERIA:" in prompt
         assert "OUTPUT FORMAT (MANDATORY):" in prompt
         assert '{"is_complete": true' in prompt  # example JSON
 

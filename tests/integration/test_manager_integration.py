@@ -5,7 +5,25 @@ TESTING SCENARIO: NEW FEATURE IMPLEMENTATION PLANNING (Go Language)
 Tests the real interaction between AgentManager and actual agent implementations
 with real LLM calls focused on planning and implementing new features for Go web APIs.
 This includes:
-- Go REST API feature requirement analysis and planning
+-        result, statistics = manager.process_query_with_review_cycle(query, temp_codebase)
+
+        print("📊 Feature planning completed!")
+        print(f"📋 Result length: {len(result)} chars")
+        print(f"📄 Result preview: {result[:300]}...")
+        print(f"🔢 Statistics: {statistics}")
+
+        # Verify that we got a real feature planning response
+        assert (
+            len(result) > 100
+        ), f"Expected substantial feature planning result, got {len(result)} chars"
+        assert (
+            "jwt" in result.lower()
+            or "authentication" in result.lower()
+            or "middleware" in result.lower()
+        )
+        # Verify statistics are returned
+        assert isinstance(statistics, dict)
+        assert "total_review_cycles" in statisticsature requirement analysis and planning
 - Go microservice implementation strategy development
 - Database integration point identification for Go applications
 - Go database schema and migration planning
@@ -340,13 +358,16 @@ CREATE TABLE users (
         query = "Add a comprehensive user profile management system with avatar upload, user preferences storage, and role-based access control (RBAC) to this Go API. Include database schema design, file upload handling with Go, middleware for authorization, and RESTful API endpoints."
         print(f"🔍 Complex Feature Query: {query}")
 
-        result = manager.process_query_with_review_cycle(query, temp_codebase)
+        result, statistics = manager.process_query_with_review_cycle(
+            query, temp_codebase
+        )
 
         print("📊 Feature implementation planning completed!")
         print(f"📋 Result length: {len(result)} chars")
         print(
             f"🔍 Contains review info: {'Specialist Review' in result or 'Note:' in result}"
         )
+        print(f"🔢 Statistics: {statistics}")
 
         # Verify comprehensive feature planning response
         assert len(result) > 200
@@ -369,6 +390,10 @@ CREATE TABLE users (
         assert (
             len(found_terms) >= 4
         ), f"Expected feature implementation terms, found: {found_terms}"
+
+        # Verify statistics are returned
+        assert isinstance(statistics, dict)
+        assert "total_review_cycles" in statistics
 
     def test_initialization_with_real_config(self, config_manager_real):
         """Test that manager can initialize with real configuration."""

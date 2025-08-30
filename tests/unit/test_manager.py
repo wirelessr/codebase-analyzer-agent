@@ -138,7 +138,7 @@ class TestAgentManager:
         mock_task_specialist.review_analysis.return_value = review_result
 
         # Execute
-        result = agent_manager.process_query_with_review_cycle(
+        result, statistics = agent_manager.process_query_with_review_cycle(
             "test query", "/test/path"
         )
 
@@ -152,6 +152,9 @@ class TestAgentManager:
 
         assert "Detailed analysis of the codebase..." in result
         assert "Good analysis coverage" in result
+        assert statistics["total_review_cycles"] == 1
+        assert statistics["rejections"] == 0
+        assert statistics["final_acceptance_type"] == "accepted"
 
     def test_process_query_rejected_then_accepted(self, agent_manager):
         """Test query processing with one rejection followed by acceptance."""
@@ -172,7 +175,7 @@ class TestAgentManager:
         mock_task_specialist.review_analysis.side_effect = review_results
 
         # Execute
-        result = agent_manager.process_query_with_review_cycle(
+        result, statistics = agent_manager.process_query_with_review_cycle(
             "test query", "/test/path"
         )
 
@@ -190,6 +193,9 @@ class TestAgentManager:
 
         assert "Improved analysis..." in result
         assert "Much better coverage" in result
+        assert statistics["total_review_cycles"] == 2
+        assert statistics["rejections"] == 1
+        assert statistics["final_acceptance_type"] == "accepted"
 
     def test_process_query_max_reviews_reached(self, agent_manager):
         """Test query processing when max reviews are reached."""
@@ -207,7 +213,7 @@ class TestAgentManager:
         mock_task_specialist.review_analysis.return_value = review_result
 
         # Execute
-        result = agent_manager.process_query_with_review_cycle(
+        result, statistics = agent_manager.process_query_with_review_cycle(
             "test query", "/test/path"
         )
 
@@ -217,6 +223,9 @@ class TestAgentManager:
 
         # Should include force acceptance note
         assert "maximum number of review cycles" in result
+        assert statistics["total_review_cycles"] == 3
+        assert statistics["rejections"] == 3
+        assert statistics["final_acceptance_type"] == "forced"
 
     def test_synthesize_final_response_accepted(self, agent_manager):
         """Test final response synthesis for accepted analysis."""
@@ -285,11 +294,15 @@ class TestAgentManager:
 
         # Initialize and execute
         agent_manager.initialize_agents()
-        result = agent_manager.process_query_with_review_cycle(
+        result, statistics = agent_manager.process_query_with_review_cycle(
             "test query", "/test/path"
         )
 
         # Verify the process worked
         assert "Enhanced analysis after feedback" in result
+        assert "Much better" in result
+        assert statistics["total_review_cycles"] == 2
+        assert statistics["rejections"] == 1
+        assert statistics["final_acceptance_type"] == "accepted"
         assert mock_code_analyzer.analyze_codebase.call_count == 2
         assert mock_task_specialist.review_analysis.call_count == 2
