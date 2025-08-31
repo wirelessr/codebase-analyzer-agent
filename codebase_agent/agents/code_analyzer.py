@@ -286,6 +286,33 @@ Always explain your findings with specific examples, line numbers, and evidence 
                 llm_decision, analysis_context
             )
 
+            # Generate milestone summary at regular intervals
+            milestone_interval = max_iterations // 2  # Two summaries per cycle
+            if milestone_interval > 0 and current_iteration % milestone_interval == 0:
+                try:
+                    self.logger.info(
+                        f"Generating milestone summary at iteration {current_iteration}"
+                    )
+                    milestone_summary = self._generate_milestone_summary(
+                        query,
+                        shell_execution_history,
+                        analysis_context,
+                        current_iteration,
+                        milestone_interval,
+                    )
+
+                    # Add milestone summary to shared knowledge base
+                    milestone_number = current_iteration // milestone_interval
+                    milestone_finding = f"🔄 MILESTONE {milestone_number} SUMMARY (Iterations {current_iteration-milestone_interval+1}-{current_iteration}): {milestone_summary}"
+                    shared_key_findings.append(milestone_finding)
+
+                    self.logger.info(
+                        f"Added milestone {milestone_number} summary to knowledge base"
+                    )
+
+                except Exception as e:
+                    self.logger.warning(f"Failed to generate milestone summary: {e}")
+
             # Check if analysis is complete
             if self._should_terminate(convergence_indicators) or not llm_decision.get(
                 "need_shell_execution", True
@@ -345,6 +372,127 @@ Always explain your findings with specific examples, line numbers, and evidence 
             convergence["sufficient_code_coverage"] = True
 
         return convergence
+
+    def _generate_milestone_summary(
+        self,
+        query: str,
+        shell_history: list,
+        analysis_context: list,
+        current_iteration: int,
+        milestone_interval: int,
+    ) -> str:
+        """
+        Generate a comprehensive milestone summary of recent iterations.
+
+        Args:
+            query: The original user query
+            shell_history: Complete shell execution history
+            analysis_context: Complete analysis context
+            current_iteration: Current iteration number
+            milestone_interval: Interval between milestones
+
+        Returns:
+            Comprehensive summary string
+        """
+        # Calculate the range of iterations to summarize
+        start_iteration = max(1, current_iteration - milestone_interval + 1)
+        end_iteration = current_iteration
+
+        # Filter relevant history for this milestone period
+        relevant_shell_history = [
+            sh
+            for sh in shell_history
+            if start_iteration <= sh["iteration"] <= end_iteration
+        ]
+
+        relevant_analysis_context = [
+            ctx
+            for ctx in analysis_context
+            if start_iteration <= ctx["iteration"] <= end_iteration
+        ]
+
+        # Build comprehensive summary prompt
+        summary_prompt = f"""
+        You are tasked with creating a MILESTONE SUMMARY for codebase analysis iterations {start_iteration}-{end_iteration}.
+
+        Original Query: {query}
+
+        Your goal is to synthesize ALL discoveries, patterns, and insights from these {milestone_interval} iterations into a comprehensive summary that preserves critical knowledge for future iterations.
+
+        === SHELL EXECUTION HISTORY FOR THIS MILESTONE ===
+        """
+
+        for shell_exec in relevant_shell_history:
+            summary_prompt += f"\nIteration {shell_exec['iteration']}:\n"
+            for result in shell_exec["results"]:
+                summary_prompt += f"Command: {result['command']}\n"
+                if result["success"] and result.get("stdout"):
+                    # Include more complete output for summary purposes
+                    stdout_sample = result["stdout"][:800]  # More context for summary
+                    summary_prompt += f"Output: {stdout_sample}...\n"
+                else:
+                    summary_prompt += f"Error: {result['stderr'] or result.get('error', 'Unknown error')}\n"
+            summary_prompt += "\n"
+
+        summary_prompt += "\n=== ANALYSIS INSIGHTS FOR THIS MILESTONE ===\n"
+
+        for ctx in relevant_analysis_context:
+            iteration = ctx["iteration"]
+            llm_decision = ctx.get("llm_decision", {})
+
+            summary_prompt += f"\nIteration {iteration}:\n"
+
+            current_analysis = llm_decision.get("current_analysis", "")
+            if current_analysis:
+                summary_prompt += f"Analysis: {current_analysis}\n"
+
+            focus_areas = llm_decision.get("next_focus_areas", "")
+            if focus_areas:
+                summary_prompt += f"Focus Areas: {focus_areas}\n"
+
+            confidence = llm_decision.get("confidence_level", "N/A")
+            summary_prompt += f"Confidence: {confidence}\n"
+
+        summary_prompt += """
+
+        === SUMMARY REQUIREMENTS ===
+        Create a comprehensive milestone summary that captures:
+
+        1. **Key Technical Discoveries**: What specific technical details were uncovered?
+        2. **Architectural Patterns**: What structural or design patterns were identified?
+        3. **Important Files/Components**: Which files or components are most significant?
+        4. **Relationships & Dependencies**: How do different parts connect or depend on each other?
+        5. **Configuration & Setup**: Any important configuration or setup insights?
+        6. **Progress Assessment**: What has been thoroughly understood vs. what needs more investigation?
+        7. **Critical Insights**: Any breakthrough understanding or important realizations?
+
+        Format as a dense, information-rich summary that future iterations can build upon.
+        Focus on concrete technical findings rather than process descriptions.
+
+        Keep it concise but comprehensive - aim for 3-5 sentences that capture the essence of all discoveries.
+        """
+
+        try:
+            # Use the agent to generate the summary
+            import asyncio
+
+            async def generate_summary():
+                result = await self._agent.run(task=summary_prompt)
+                return extract_text_from_autogen_response(result)
+
+            summary = asyncio.run(generate_summary())
+
+            # Clean and validate the summary
+            if summary and len(summary.strip()) > 20:
+                return summary.strip()
+            else:
+                # Fallback summary if LLM fails
+                return f"Milestone {current_iteration//milestone_interval} completed iterations {start_iteration}-{end_iteration}. Executed {len(relevant_shell_history)} shell sessions with focus on {query}."
+
+        except Exception as e:
+            self.logger.warning(f"LLM summary generation failed: {e}")
+            # Simple fallback summary
+            return f"Milestone summary for iterations {start_iteration}-{end_iteration}: Executed {len(relevant_shell_history)} shell sessions analyzing {query}."
 
     def _build_iteration_prompt(
         self,

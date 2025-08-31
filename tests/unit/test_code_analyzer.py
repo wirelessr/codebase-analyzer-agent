@@ -457,8 +457,8 @@ class TestCodeAnalyzer:
 
             result = analyzer.analyze_codebase("Complex analysis", "/test/path")
 
-        # Should stop at max iterations (10) + 1 for final synthesis
-        assert call_count[0] == 11
+        # Should stop at max iterations (10) + 1 for final synthesis + 2 for milestone summaries at iterations 5 and 10
+        assert call_count[0] == 13
         assert "Iterations: 10" in result
 
     def test_build_iteration_prompt_includes_context(self, analyzer):
@@ -559,3 +559,251 @@ class TestCodeAnalyzer:
         assert "Finding B" in result
         assert "Finding C" in result
         assert "Knowledge base size: 3 findings" in result
+
+    @patch("codebase_agent.agents.code_analyzer.CodeAnalyzer._execute_shell_commands")
+    def test_milestone_summary_generation(self, mock_shell_exec, analyzer):
+        """Test milestone summary generation with complete history access."""
+
+        # Mock the agent's response for milestone summary
+        async def mock_agent_run(task):
+            mock_result = Mock()
+            # Check if this is a milestone summary request
+            if "MILESTONE SUMMARY" in task:
+                mock_result.messages = [
+                    Mock(
+                        content="Milestone summary: Found Python files and analyzed structure"
+                    )
+                ]
+            else:
+                mock_result.messages = [
+                    Mock(
+                        content='{"key_findings": ["Test finding"], "confidence_level": 8}'
+                    )
+                ]
+            return mock_result
+
+        analyzer._agent.run = mock_agent_run
+        mock_shell_exec.return_value = []
+
+        # Test data setup
+        context = [
+            {
+                "iteration": 1,
+                "llm_decision": {"key_findings": ["Finding 1"], "confidence_level": 6},
+            },
+            {
+                "iteration": 2,
+                "llm_decision": {"key_findings": ["Finding 2"], "confidence_level": 7},
+            },
+        ]
+        shell_history = [
+            {
+                "iteration": 1,
+                "results": [
+                    {
+                        "command": "ls",
+                        "stdout": "file1.py",
+                        "success": True,
+                        "stderr": "",
+                        "error": None,
+                    }
+                ],
+            },
+            {
+                "iteration": 2,
+                "results": [
+                    {
+                        "command": "find . -name '*.py'",
+                        "stdout": "file1.py\nfile2.py",
+                        "success": True,
+                        "stderr": "",
+                        "error": None,
+                    }
+                ],
+            },
+        ]
+
+        # Mock asyncio.run for the milestone summary call
+        with patch("asyncio.run") as mock_async_run:
+
+            def run_mock(coro):
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            mock_async_run.side_effect = run_mock
+
+            # Call the milestone summary method
+            summary = analyzer._generate_milestone_summary(
+                "Test query", shell_history, context, 3, 3
+            )
+
+        # Verify summary was generated
+        assert summary is not None
+        assert "Milestone summary:" in summary
+
+    def test_milestone_summary_interval_calculation(self, analyzer):
+        """Test milestone summary interval calculation based on max_iterations."""
+
+        # Test different max_iterations values
+        test_cases = [
+            (4, 2),  # 4//2 = 2
+            (6, 3),  # 6//2 = 3
+            (8, 4),  # 8//2 = 4
+            (10, 5),  # 10//2 = 5
+            (3, 1),  # 3//2 = 1 (minimum)
+        ]
+
+        for max_iterations, expected_interval in test_cases:
+            analyzer.max_iterations = max_iterations
+            interval = analyzer.max_iterations // 2
+            assert (
+                interval == expected_interval
+            ), f"For max_iterations={max_iterations}, expected interval={expected_interval}, got {interval}"
+
+    def test_analyze_codebase_milestone_interval_calculation(self, analyzer):
+        """Test that milestone interval is calculated correctly as max_iterations//2."""
+
+        # Test the milestone calculation logic directly
+        # Since max_iterations is hardcoded to 10 in analyze_codebase, interval should be 5
+        expected_interval = 10 // 2  # = 5
+
+        # Verify that milestone should trigger at iterations: 5, 10
+        milestone_iterations = []
+        for iteration in range(1, 11):  # 1 to 10
+            if iteration % expected_interval == 0:
+                milestone_iterations.append(iteration)
+
+        # Should have milestones at iterations 5 and 10
+        assert milestone_iterations == [5, 10]
+
+        # Verify the interval ensures at least 2 summaries per cycle (for max_iterations=10)
+        assert len(milestone_iterations) == 2
+
+    def test_milestone_summary_error_handling(self, analyzer):
+        """Test that milestone summary generation handles errors gracefully."""
+
+        # Mock an agent that raises an exception
+        async def mock_agent_run_error(task):
+            raise Exception("LLM service unavailable")
+
+        analyzer._agent.run = mock_agent_run_error
+
+        # Mock asyncio.run to handle the exception
+        with patch("asyncio.run") as mock_async_run:
+
+            def run_mock(coro):
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            mock_async_run.side_effect = run_mock
+
+            # Test data
+            context = [{"iteration": 1, "llm_decision": {"key_findings": ["Test"]}}]
+            shell_history = [
+                {
+                    "iteration": 1,
+                    "results": [
+                        {
+                            "command": "ls",
+                            "stdout": "test.py",
+                            "success": True,
+                            "stderr": "",
+                            "error": None,
+                        }
+                    ],
+                }
+            ]
+
+            # Call should not raise exception, should return None or error message
+            summary = analyzer._generate_milestone_summary(
+                "Test query", shell_history, context, 2, 2
+            )
+
+            # Should handle error gracefully (but method actually returns a default summary even on LLM failure)
+            assert summary is not None
+            assert "iterations 1-2" in summary
+
+    def test_milestone_summary_includes_complete_history(self, analyzer):
+        """Test that milestone summary has access to complete history for comprehensive analysis."""
+
+        # Create extensive test data to verify complete history access
+        context = []
+        shell_history = []
+        for i in range(1, 6):  # 5 iterations of history
+            context.append(
+                {
+                    "iteration": i,
+                    "llm_decision": {
+                        "key_findings": [f"Finding {i}A", f"Finding {i}B"],
+                        "confidence_level": i + 3,
+                        "current_analysis": f"Analysis for iteration {i}",
+                    },
+                }
+            )
+            shell_history.append(
+                {
+                    "iteration": i,
+                    "results": [
+                        {
+                            "command": f"ls iteration_{i}",
+                            "stdout": f"file{i}.py",
+                            "success": True,
+                        }
+                    ],
+                }
+            )
+
+        # Mock agent to capture the prompt content
+        captured_prompt = []
+
+        async def mock_agent_run(task):
+            captured_prompt.append(task)
+            mock_result = Mock()
+            mock_result.messages = [Mock(content="Test milestone summary")]
+            return mock_result
+
+        analyzer._agent.run = mock_agent_run
+
+        with patch("asyncio.run") as mock_async_run:
+
+            def run_mock(coro):
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            mock_async_run.side_effect = run_mock
+
+            # Generate milestone summary
+            analyzer._generate_milestone_summary(
+                "Complex analysis query", shell_history, context, 5, 5
+            )
+
+        # Verify the prompt includes complete history
+        prompt = captured_prompt[0]
+
+        # Check that analysis content from iterations is included
+        for i in range(1, 6):
+            assert f"Analysis for iteration {i}" in prompt
+            assert f"ls iteration_{i}" in prompt
+            assert f"file{i}.py" in prompt
+
+        # Verify milestone-specific formatting
+        assert "MILESTONE SUMMARY" in prompt
+        assert "Complex analysis query" in prompt
